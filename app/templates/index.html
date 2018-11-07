@@ -1,37 +1,1064 @@
+<!DOCTYPE html>
 <html>
+<head>
+    <meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="keywords" content="">
+    <meta name="description" content="">
+    <meta name="author" content="LOOSEDAYS S.Nakaya">
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.2/css/bootstrap.min.css" integrity="sha384-Smlep5jCw/wG7hdkwQ/Z5nLIefveQRIY9nfy6xoR1uRYBtpZgI6339F5dgvm/e9B" crossorigin="anonymous">
+	<link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+	<link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+    <title>WebAuthn practice</title>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
+        <a class="navbar-brand font-weight-bold" href="#">&#x0057;&#x0338;&#x0041;&#x0338;</a>
+        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav">
+                <li class="nav-item">
+                    <a class="nav-link active" href="#" id="rlLink">Register&amp;Log-in</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#" id="usersLink">Users</a>
+                </li>
+                <li class="nav-item">
+                        <a class="nav-link" href="#" id="viewLink">Fast View</a>
+                    </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#" id="osLink">Option Setting</a>
+                </li>
+            </ul>
+        </div>
+    </nav>
+    <div id="mainContainer">
+        <div class="jumbotron jumbotron-fluid mt-5" style="background-color:black;">
+            <div class="text-center text-white">
+                <h1>WebAuthn practice</h1>
+                <h2 class="lead">WebAuthn/FIDO2 Testing Platform</h2>
+            </div>
+        </div>
+        
+        <div class="container">
+            <div id="infoalert" class="alert alert-success alert-dismissible w-80 show d-none" role="alert">
+                <span id="infomsg"></span>
+                <button id="infoalert-close" type="button" class="close" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div id="erralert" class="alert alert-danger alert-dismissible w-80 show d-none" role="alert">
+                <span id="errmsg"></span>
+                <button id="erralert-close" type="button" class="close" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+        </div>
+
+        <div class="container rlPanel" id="rlModal">
+            <form name="register" method="get">
+                <h2 class="text-center">Register</h2>
+                <div class="form-group">
+                    <label for="register_username">Username</label>
+                    <input type="text" class="form-control" id="register_username" name="register_username" placeholder="(Required) Enter Register Name">
+                </div>
+                <div class="form-group">
+                    <label for="register_display_name">Display Name</label>
+                    <input type="text" class="form-control" id="register_display_name" name="register_display_name" placeholder="(Required when registration) Enter Display Name">
+                </div>
+                <button id="register" type="submit" class="btn btn-primary btn-lg btn-block">Register with WebAuthn</button>
+            </form>
+            <form name="login" method="get">
+                <h2 class="text-center">Log-In</h2>
+                <div class="form-group">
+                    <label for="login_username">Username</label>
+                    <input type="text" class="form-control" id="login_username" name="login_username" placeholder="Enter Login UserName">
+                </div>
+                <button id="login" type="submit" class="btn btn-primary btn-lg btn-block">Log-in with WebAuthn</button>
+            </form>
+            <form id="log-output-form">
+                <a href="#" id="clearlogLink"><svg id="clearlogIcon" class="clearIcon float-right" xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24"><path fill="none" d="M0 0h24v24H0V0z"/><path d="M16 9v10H8V9h8m-1.5-6h-5l-1 1H5v2h14V4h-3.5l-1-1zM18 7H6v12c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7z"/></svg></a>
+                <h2 class="text-center">Log</h2>
+                <div class="form-group">
+                    <textarea class="form-control bg-white" id="logoutput" rows="15" readonly="true"></textarea>
+                </div>
+            </form>
+        </div>
+
+        <div class="container usersPanel" id="usersModal" style="display: none;">
+            <a href="#" id="clearUsersLink"><svg id="clearUsersIcon" class="clearIcon float-right" xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24"><path fill="none" d="M0 0h24v24H0V0z"/><path d="M16 9v10H8V9h8m-1.5-6h-5l-1 1H5v2h14V4h-3.5l-1-1zM18 7H6v12c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7z"/></svg></a>
+            <h2 class="text-center">Registered Users</h2>
+            <div class="table-responsive"></div>
+                <table class="table table-hover" style="table-layout:fixed;width:100%;">
+                    <colgroup>
+                        <col style="width:10%;">
+                        <col style="width:10%;">
+                        <col style="width:20%;">
+                        <col style="width:20%;">
+                        <col style="width:40%;">
+                    </colgroup>
+                    <thead class="thead-light">
+                        <tr class="text-center">
+                            <th scope="col">
+                                <i class="checkIcon material-icons text-primary">check_box_outline_blank</i>
+                            </th>
+                            <th scope="col">#</th>
+                            <th scope="col">User Name</th>
+                            <th scope="col">Display Name</th>
+                            <th scope="col">Cred ID</th>
+                        </tr>
+                    </thead>
+                    <tbody id="usersTable">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="container userDetailPanel clearfix" id="userDetailModal" style="display: none;">
+            <button type="button" class="backtoUsersBtn btn btn-outline-info float-right"><i class="material-icons align-middle ">arrow_back</i>Back to Users List</button>
+            <h2 class="text-center clearfix">User Detail</h2>
+            <div class="table-responsive"></div>
+                <table class="table mb-0" style="table-layout:fixed;width:100%;">
+                    <colgroup>
+                        <col style="width:10%;">
+                        <col style="width:25%;">
+                        <col style="width:25%;">
+                        <col style="width:40%;">
+                    </colgroup>
+                    <thead class="thead-light">
+                        <tr class="text-center">
+                            <th scope="col">#</th>
+                            <th scope="col">User Name</th>
+                            <th scope="col">Display Name</th>
+                            <th scope="col">UKey</th>
+                        </tr>
+                    </thead>
+                    <tbody id="userDetail-1Table">
+                        <tr>
+                            <td id="userId" class="text-center"></td><td id="userName" class="text-center"></td><td id="displayName"></td><td id="uKey"></td>
+                        </tr>
+                    </tbody>
+                </table>
+                <table class="table my-0" style="table-layout:fixed;width:100%;">
+                    <colgroup>
+                        <col style="width:40%;">
+                        <col style="width:20%;">
+                        <col style="width:20%;">
+                        <col style="width:20%;">
+                    </colgroup>
+                    <thead class="thead-light">
+                        <tr class="text-center">
+                            <th scope="col">Credential ID</th>
+                            <th scope="col">Count</th>
+                            <th scope="col">RP ID</th>
+                            <th scope="col">Icon URL</th>
+                        </tr>
+                    </thead>
+                    <tbody id="userDetail-2Table">
+                        <tr>
+                            <td id="credId"></td><td id="signCount" class="text-center"></td><td id="rpId"></td><td id="iconUrl"></td>
+                        </tr>
+                    </tbody>
+                </table>
+                <table class="table my-0" style="table-layout:fixed;width:100%;">
+                    <colgroup>
+                        <col style="width:100%;">
+                    </colgroup>
+                    <thead class="thead-light">
+                        <tr class="text-center">
+                            <th scope="col">Public Key</th>
+                        </tr>
+                    </thead>
+                    <tbody id="userDetail-3Table">
+                        <tr>
+                            <td id="publicKey"></td>
+                        </tr>
+                    </tbody>
+                </table>
+                <table class="table my-0" style="table-layout:fixed;width:100%;">
+                    <colgroup>
+                        <col style="width:100%;">
+                    </colgroup>
+                    <thead class="thead-light">
+                        <tr class="text-center">
+                            <th scope="col">Attestation Option</th>
+                        </tr>
+                    </thead>
+                    <tbody id="userDetail-4Table">
+                        <tr>
+                            <td id="attOption"></td>
+                        </tr>
+                    </tbody>
+                </table>
+                <table class="table my-0" style="table-layout:fixed;width:100%;">
+                    <colgroup>
+                        <col style="width:100%;">
+                    </colgroup>
+                    <thead class="thead-light">
+                        <tr class="text-center">
+                            <th scope="col">Attestation Response</th>
+                        </tr>
+                    </thead>
+                    <tbody id="userDetail-5Table">
+                        <tr>
+                            <td id="responseDecoded"></td>
+                        </tr>
+                    </tbody>
+                </table>
+                <button type="button" class="backtoUsersBtn btn btn-outline-info float-right"><i class="material-icons align-middle ">arrow_back</i>Back to Users List</button>
+            </div>
+        </div>
+
+        <div class="container viewPanel" id="viewModal" style="display: none;">
+            <h2 class="text-center">Fast View</h2>
+            <form name="fastview">
+                <div class="form-group">
+                    <label for="view_username">Username</label>
+                    <input type="text" class="form-control" id="view_username" name="view_username" placeholder="(Required when assertion) Enter UserName">
+                </div>
+                <div class="mx-auto d-inline" role="group" aria-label="view buttons">
+                    <button id="view_attestaion" type="button" class="btn btn-primary btn-lg btn-inline">Attestation</button>
+                    <button id="view_assertion" type="button" class="btn btn-primary btn-lg btn-inline">Assertion</button>
+                </div>
+                <div class="form-group mt-2">
+                        <a href="#" id="clearViewlogLink"><svg id="clearViewlogIcon" class="clearIcon float-right" xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24"><path fill="none" d="M0 0h24v24H0V0z"/><path d="M16 9v10H8V9h8m-1.5-6h-5l-1 1H5v2h14V4h-3.5l-1-1zM18 7H6v12c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7z"/></svg></a>
+                    <h2 class="text-center">Result</h2>
+                    <textarea class="form-control bg-white" id="view_output" rows="20" readonly="true"></textarea>
+                </div>
+            </form>
+        </div>
+
+        <div class="container optionsPanel" id="optionsModal" style="display: none;">
+            <div class="float-right">
+                <button type="button" class="btn btn-primary opSettingsModalSaveBtn">Save changes</button>
+            </div>
+            <h2 class="text-center">Options Setting</h2>
+            <form name="optionssetting">
+                <ul class="nav nav-tabs nav-fill" id="opSettingsTab" role="tablist">
+                    <li class="nav-item">
+                        <a class="nav-link active" id="attestationTab" data-toggle="tab" href="#attestationTabPanel" role="tab" aria-controls="attestationTabPanel" aria-selected="true">Attestation</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" id="assertionTab" data-toggle="tab" href="#assertionTabPanel" role="tab" aria-controls="assertionTabPanel" aria-selected="false">Assertion</a>
+                    </li>
+                </ul>
+                <div class="tab-content" id="opTabContent">
+                    <div class="tab-pane fade show active" id="attestationTabPanel" role="tabpanel" aria-labelledby="attestationTab">
+                        <div class="form-group">
+                            <label for="attestationTypeSelect">Attestation Type</label>
+                            <select class="form-control custom-select bg-light" id="attestationTypeSelect" readonly="true">
+                                <option value="direct">direct</option>
+                                <option value="indirect">indirect</option>
+                                <option value="none">none</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="userVerificationSelect">User Verification</label>
+                            <select class="form-control custom-select bg-light" id="userVerificationSelect" readonly="true">
+                                <option value="required">required</option>
+                                <option value="preferred">preferred</option>
+                                <option value="discouraged">discouraged</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="requireResidentKeySelect">Require ResidentKey</label>
+                            <select class="form-control custom-select bg-light" id="requireResidentKeySelect" readonly="true">
+                                <option value="true">true</option>
+                                <option value="false">false</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="authenticatorAttachmentSelect">Authenticator Attachment</label>
+                            <select class="form-control custom-select bg-light" id="authenticatorAttachmentSelect" readonly="true">
+                                <option value="platform">platform</option>
+                                <option value="cross-platform">cross-platform</option>
+                            </select>
+                        </div>
+                        <div class="form-row">
+                            <label class="col-12 col-md-12" for="allowTransportsText">Allow transports</label>
+                            <div class="form-group col-8 col-md-8">
+                                <input type="text" class="form-control" id="allowTransportsText" aria-describedby="allowTransportsHelp" placeholder="Enter transports values">
+                            </div>
+                            <div class="form-group col-auto col-md-auto">
+                                <button id="allowTransportsAddBtn" type="button" class="btn btn-info"><i class="material-icons align-middle ">arrow_back_ios</i></button>
+                            </div>
+                            <div class="form-group col col-md">
+                                <select id="allowTransportsSelect" class="form-control">
+                                    <option value="usb">usb</option>
+                                    <option value="nfc">nfc</option>
+                                    <option value="ble">ble</option>
+                                    <option value="internal">internal</option>
+                                </select>
+                            </div>
+                            <small id="scopeHelp" class="col-12 col-md-12 form-text text-muted">Multi values must be separated by space.</small>
+                        </div>
+                        <div class="form-row">
+                            <label class="col-12 col-md-12" for="excludeTransportsText">Exclude transports</label>
+                            <div class="form-group col-8 col-md-8">
+                                <input type="text" class="form-control" id="excludeTransportsText" aria-describedby="excludeTransportsHelp" placeholder="Enter transports values">
+                            </div>
+                            <div class="form-group col-auto col-md-auto">
+                                <button id="excludeTransportsAddBtn" type="button" class="btn btn-info"><i class="material-icons align-middle ">arrow_back_ios</i></button>
+                            </div>
+                            <div class="form-group col col-md">
+                                <select id="excludeTransportsSelect" class="form-control">
+                                    <option value="usb">usb</option>
+                                    <option value="nfc">nfc</option>
+                                    <option value="ble">ble</option>
+                                    <option value="internal">internal</option>
+                                </select>
+                            </div>
+                            <small id="excludeTransportsHelp" class="col-12 col-md-12 form-text text-muted">Multi values must be separated by space.</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="attestationExtentionsTextArea">Option Parameters on Attestation</label>
+                            <textarea class="form-control" id="attestationExtentionsTextArea" rows="5"></textarea>
+                            <small id="attestationExtentionsTextAreaHelp" class="form-text text-muted">Format is "Name=Value". Each option is per row.</small>
+                        </div>
+                    </div>
+                    <div class="tab-pane fade" id="assertionTabPanel" role="tabpanel" aria-labelledby="assertionTab">
+                        <div class="form-row">
+                            <label class="col-12 col-md-12" for="acceptableTransportsText">Allow transports</label>
+                            <div class="form-group col-8 col-md-8">
+                                <input type="text" class="form-control" id="acceptableTransportsText" aria-describedby="acceptableTransportsHelp" placeholder="Enter transports values">
+                            </div>
+                            <div class="form-group col-auto col-md-auto">
+                                <button id="acceptableTransportsAddBtn" type="button" class="btn btn-info"><i class="material-icons align-middle ">arrow_back_ios</i></button>
+                            </div>
+                            <div class="form-group col col-md">
+                                <select id="acceptableTransportsSelect" class="form-control">
+                                    <option value="usb">usb</option>
+                                    <option value="nfc">nfc</option>
+                                    <option value="ble">ble</option>
+                                    <option value="internal">internal</option>
+                                </select>
+                            </div>
+                            <small id="acceptableTransportsHelp" class="col-12 col-md-12 form-text text-muted">Multi values must be separated by space.</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="assertionExtentionsTextArea">Option Parameters on Assertion</label>
+                            <textarea class="form-control" id="assertionExtentionsTextArea" rows="5"></textarea>
+                            <small id="assertionExtentionsTextAreaHelp" class="form-text text-muted">Format is "Name=Value". Each option is per row.</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="float-right">
+                    <button type="button" class="btn btn-primary opSettingsModalSaveBtn">Save changes</button>
+                </div>
+            </form>
+        </div>
+
+    <footer class="footer clearfix bg-dark mt-4">
+        <div class="footer-container text-right text-muted">
+            <p class="m-0 p-0">Forked from <a href="https://github.com/duo-labs/py_webauthn">duo-labs/py_webauthn</a>.</p>
+            <p class="m-0 p-0">(C)2018 LOOSEDAYS</p>
+        </div>
+    </footer>
+
+    <script src="https://code.jquery.com/jquery-3.3.1.min.js" integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8=" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.3/umd/popper.min.js" integrity="sha384-ZMP7rVo3mIykV+2+9J3UJ46jBk0WLaUAdn689aCwoqbBJiSnjAK/l8WvCWPIPm49" crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.1.2/js/bootstrap.min.js" integrity="sha384-o+RDsa0aLu++PJvFqy8fFScvbHFLtbvScb8AjopnFD+iEQ7wo/CG0xlczd+2O/em" crossorigin="anonymous"></script>
+	<script src="https://cdn.jsdelivr.net/npm/js-cookie@2/src/js.cookie.min.js"></script>
+	<script src="https://cdn.jsdelivr.net/npm/gasparesganga-jquery-loading-overlay@2.1.5/dist/loadingoverlay.min.js"></script>
     <script src="{{ url_for('static', filename='js/lib/base64.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/webauthn.js') }}"></script>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
-    <title>WebAuthn Test</title>
-    <body>
-        <h1>WebAuthn Test</h1>
-        {% with messages = get_flashed_messages() %}
-            {% if messages %}
-                {% for message in messages %}
-                    <p class="flash">{{ message }}</li>
-                {% endfor %}
-            {% endif %}
-        {% endwith %}
-        {% if current_user.is_authenticated %}
-        <p>Logged in as {{ current_user.username }} | <a href="{{ url_for('logout') }}">Logout</a></p>
-        {% else %}
-            <h2>Register</h2>
-            <form id="register-form" name="register" method="get">
-                <label for="register_username">Username:</label>
-                <input name="register_username"></input>
-                <label for="register_display_name">Display Name:</label>
-                <input name="register_display_name"></input>
-                <button id="register" type="submit">Register with WebAuthn</button>
-            </form>
+    <script type="text/javascript">
+    function b64enc(buf) {
+        return base64js.fromByteArray(buf)
+            .replace(/\+/g, "-")
+            .replace(/\//g, "_")
+            .replace(/=/g, "");
+    }
 
-            <hr></hr>
+    function b64RawEnc(buf) {
+        return base64js.fromByteArray(buf)
+            .replace(/\+/g, "-")
+            .replace(/\//g, "_");
+    }
 
-            <h2>Log In</h2>
-            <form id="login-form" name="login" method="get">
-                <label for="login_username">Username:</label>
-                <input name="login_username"></input>
-                <button id="login" type="submit">Log in with WebAuthn</button>
-            </form>
-        {% endif %}
-    </body>
+    function hexEncode(buf) {
+        return Array.from(buf)
+            .map(function(x) {
+                return ("0" + x.toString(16)).substr(-2);
+            })
+            .join("");
+    }
+
+    async function registerNewCredential(newCredential, stringlyNewCredential) {
+        let attObj = new Uint8Array(
+            newCredential.response.attestationObject);
+        let clientDataJSON = new Uint8Array(
+            newCredential.response.clientDataJSON);
+        let rawId = new Uint8Array(
+            newCredential.rawId);
+        let registrationClientExtensions = newCredential.getClientExtensionResults();
+        $.post('/verify_credential_info', {
+            stringlyResponse: stringlyNewCredential,
+            id: newCredential.id,
+            rawId: b64enc(rawId),
+            type: newCredential.type,
+            attObj: b64enc(attObj),
+            clientData: b64enc(clientDataJSON),
+            registrationClientExtensions: JSON.stringify(registrationClientExtensions)
+        }).done(await function(response){
+            console.log(response);
+            if(response.success) {
+                $('#infomsg').text(response.success);
+                $('#infoalert').removeClass('d-none');
+            } else if(response.responseJSON) {
+                if(response.responseJSON.fail) {
+                    $('#errmsg').text(e.responseJSON.fail);
+                    $('#erralert').removeClass('d-none');
+                }
+            }
+            if(response.debug_log) {
+                addLog(response.debug_log);
+            }
+        }).catch(function(e) {
+            if(e.responseJSON.fail) {
+                $('#errmsg').text(e.responseJSON.fail);
+                $('#erralert').removeClass('d-none');
+            }
+            if(e.debug_log) {
+                addLog(response.debug_log);
+            }
+        });
+    }
+
+    function verifyAssertion(assertedCredential) {
+        let authData = new Uint8Array(assertedCredential.response.authenticatorData);
+        let clientDataJSON = new Uint8Array(assertedCredential.response.clientDataJSON);
+        let rawId = new Uint8Array(assertedCredential.rawId);
+        let sig = new Uint8Array(assertedCredential.response.signature);
+        let assertionClientExtensions = assertedCredential.getClientExtensionResults();
+        $.post('/verify_assertion', {
+            id: assertedCredential.id,
+            rawId: b64enc(rawId),
+            type: assertedCredential.type,
+            authData: b64RawEnc(authData),
+            clientData: b64RawEnc(clientDataJSON),
+            signature: hexEncode(sig),
+            assertionClientExtensions: JSON.stringify(assertionClientExtensions)
+        }).done(function(response){
+            console.log(response);
+            if(response.success) {
+                $('#infomsg').text(response.success);
+                $('#infoalert').removeClass('d-none');
+            } else if(response.responseJSON) {
+                if(response.responseJSON.fail) {
+                    $('#errmsg').text(e.responseJSON.fail);
+                    $('#erralert').removeClass('d-none');
+                }
+            }
+            if(response.debug_log) {
+                addLog(response.debug_log);
+            }
+        }).catch(function(e) {
+            if(e.responseJSON.fail) {
+                $('#errmsg').text(e.responseJSON.fail);
+                $('#erralert').removeClass('d-none');
+            }
+            if(e.debug_log) {
+                addLog(response.debug_log);
+            }
+        });
+    }
+
+    function stringlyAttestationPublicKeyCredential(publicKeyCredential) {
+        let attObj = new Uint8Array(
+            publicKeyCredential.response.attestationObject);
+        let clientDataJSON = new Uint8Array(
+            publicKeyCredential.response.clientDataJSON);
+        let rawId = new Uint8Array(
+            publicKeyCredential.rawId);
+        let registrationClientExtensions = publicKeyCredential.getClientExtensionResults();
+
+        return JSON.stringify({
+            "id" : publicKeyCredential.id,
+            "rawId" : b64enc(rawId),
+            "public-key" : publicKeyCredential.type,
+            "response" : {
+                "attestationObject" : b64enc(attObj),
+                "clientDataJSON" : b64enc(clientDataJSON),
+            },
+            "clientExtensionsResults" : JSON.stringify(registrationClientExtensions)
+        })
+    }
+
+    function stringlyAssertionPublicKeyCredential(assertedCredential) {
+        let authData = new Uint8Array(assertedCredential.response.authenticatorData);
+        let clientDataJSON = new Uint8Array(assertedCredential.response.clientDataJSON);
+        let rawId = new Uint8Array(assertedCredential.rawId);
+        let sig = new Uint8Array(assertedCredential.response.signature);
+        let uHandle = new Uint8Array(assertedCredential.response.userHandle);
+        let assertionClientExtensions = assertedCredential.getClientExtensionResults();
+
+        return JSON.stringify({
+            "id" : assertedCredential.id,
+            "rawId" : b64enc(rawId),
+            "response" : {
+                "authenticatorData" : b64enc(authData),
+                "clientDataJSON" : b64enc(clientDataJSON),
+                "signature" : hexEncode(sig),
+                "userHandle" : b64enc(uHandle),
+            },
+            "clientExtensionsResults" : JSON.stringify(assertionClientExtensions)
+        })
+    }
+
+    function addLog(msg) {
+        if (typeof msg === 'string') {
+            $('#logoutput').val($('#logoutput').val() + msg + '\n');
+        } else if (typeof msg === 'object') { //Array
+            let tmsg = "";
+            for(let m of msg) {
+                tmsg += m + '\n'
+            }
+            $('#logoutput').val($('#logoutput').val() + tmsg);
+        }
+    }
+    function addErrToLog(e) {
+        var msg = "";
+        if(e.status && e.statusText) {
+            msg += e.status + " " + e.statusText + " ";
+        }
+        if(e.message) {
+            msg += e.message + " ";
+        }
+        if(e.responseJSON) {
+            if(e.responseJSON.fail) {
+                msg += e.responseJSON.fail + " ";
+            }
+        }
+        $('#logoutput').val($('#logoutput').val() + msg + '\n');
+    }
+    function clearLog() {
+        $('#logoutput').val('');
+    }
+
+    function addViewLog(msg) {
+        if (typeof msg === 'string') {
+            $('#view_output').val($('#view_output').val() + msg + '\n');
+        } else if (typeof msg === 'object') { //Array
+            let tmsg = "";
+            for(let m of msg) {
+                tmsg += m + '\n'
+            }
+            $('#view_output').val($('#loview_outputgoutput').val() + tmsg);
+        }
+    }
+    function clearViewLog() {
+        $('#view_output').val('');
+    }
+
+
+    $(document).ready(function() {
+        // Loading-Anim Default Settings
+        $.LoadingOverlaySetup({
+            imageColor: "#ffcc00"
+        });
+
+        $("#infoalert-close").click(function(e) {
+            $('#infomsg').text("");
+            $('#infoalert').addClass('d-none');
+        });
+        $("#erralert-close").click(function(e) {
+            $('#errmsg').text("");
+            $('#erralert').addClass('d-none');
+        });
+
+        $("#register").click(function(e) {
+            e.preventDefault();
+            var username = $('input[name="register_username"]').val();
+            var displayName = $('input[name="register_display_name"]').val();
+
+            addLog('\n===== Registration Start =====');
+            $.post("/webauthn_begin_activate", {
+                username: username,
+                displayName: displayName,
+                checkExistUser: true
+            }).done(function(makeCredentialOptions) {
+                console.log(makeCredentialOptions);
+                addLog('----- MakeCredentialOptions -----');
+                addLog(JSON.stringify(makeCredentialOptions));
+                addLog('----------');
+                if(makeCredentialOptions.responseJSON) {
+                    if(makeCredentialOptions.responseJSON.fail) {
+                        $('#errmsg').text(makeCredentialOptions.responseJSON.fail);
+                        $('#erralert').removeClass('d-none');
+                        return false;
+                    }
+                }
+                // Turn the challenge back into the accepted format
+                makeCredentialOptions.challenge = Uint8Array.from(
+                    atob(makeCredentialOptions.challenge), c => c.charCodeAt(0));
+                // Turn the user ID back into the accepted format
+                makeCredentialOptions.user.id = Uint8Array.from(
+                    atob(makeCredentialOptions.user.id), c => c.charCodeAt(0));
+                try{
+                    navigator.credentials.create({ publicKey: makeCredentialOptions })
+                        .then(async function(newCredential) {
+                            console.log(newCredential);
+                            stringlyNewCredential = stringlyAttestationPublicKeyCredential(newCredential);
+                            addLog('----- Authenticator Response -----');
+                            addLog(stringlyNewCredential);
+                            addLog('----------');
+                            // Send new credential info to server for
+                            // verification and registration.
+                            await registerNewCredential(newCredential, stringlyNewCredential);
+                        }).then(() => {
+                            addLog('===== Registration End =====');
+                        }).catch(function(e) {
+                            // No acceptable authenticator or user refused
+                            // consent. Handle appropriately.
+                            console.log("Error creating credential.");
+                            console.log(e);
+                            addLog('>>>>> Error creating credential. <<<<<');
+                            addErrToLog(e);
+                            addLog('>>>>> <<<<<');
+                            if(e.message) {
+                                $('#errmsg').text(e.message);
+                                $('#erralert').removeClass('d-none');
+                            } else if(e.responseJSON.fail) {
+                                $('#errmsg').text(e.responseJSON.fail);
+                                $('#erralert').removeClass('d-none');
+                            }
+                            addLog('===== Registration End =====');
+                        });
+                } catch(e) {
+                    console.log("Error navigator.credentials.create.");
+                    console.log(e);
+                    addLog('>>>>> Error navigator.credentials.create. <<<<<');
+                    addErrToLog(e);
+                    addLog('>>>>> <<<<<');
+                    if(e.message) {
+                        $('#errmsg').text(e.message);
+                        $('#erralert').removeClass('d-none');
+                    }
+                    addLog('===== Registration End =====');
+                };
+            }).catch(function(e) {
+                console.log("Error Making credential oprions.");
+                console.log(e);
+                addLog('>>>>> Error Making credential oprions. <<<<<');
+                addErrToLog(e);
+                addLog('>>>>> <<<<<');
+                if(e.responseJSON.fail) {
+                    $('#errmsg').text(e.responseJSON.fail);
+                    $('#erralert').removeClass('d-none');
+                }
+                addLog('===== Registration End =====');
+            });
+        });
+
+        $("#login").click(function(e) {
+            e.preventDefault();
+            var username = $('input[name="login_username"]').val();
+
+            addLog('\n===== Log-in Start =====');
+            $.post("/webauthn_begin_assertion", {
+                username: username
+            }).done(function(assertionOptions) {
+                console.log(assertionOptions);
+                addLog('----- MakeAssertionOptions -----');
+                addLog(JSON.stringify(assertionOptions));
+                addLog('----------');
+                if(assertionOptions.responseJSON) {
+                    if(assertionOptions.responseJSON.fail) {
+                        $('#errmsg').text(assertionOptions.responseJSON.fail);
+                        $('#erralert').removeClass('d-none');
+                        return false;
+                    }
+                }
+                // Turn the challenge back into the accepted format
+                assertionOptions.challenge = Uint8Array.from(
+                    atob(assertionOptions.challenge), c => c.charCodeAt(0));
+                assertionOptions.allowCredentials.forEach(function(listItem) {
+                    var fixedId = listItem.id.replace(
+                        /\_/g, "/").replace(/\-/g, "+");
+                    listItem.id = Uint8Array.from(
+                        atob(fixedId), c => c.charCodeAt(0));
+                });
+                try{
+                    navigator.credentials.get({ publicKey: assertionOptions })
+                        .then(function(assertedCredential) {
+                            console.log(assertedCredential);
+                            addLog('----- Authenticator Response -----');
+                            addLog(stringlyAssertionPublicKeyCredential(assertedCredential));
+                            addLog('----------');
+                            // Send assertion to server for verification.
+                            verifyAssertion(assertedCredential);
+                            addLog('===== Log-in End =====');
+                        }).catch(function(e) {
+                            // No acceptable authenticator or user refused
+                            // consent. Handle appropriately.
+                            console.log("Error during assertion.");
+                            console.log(e);
+                            addLog('>>>>> Error during assertion. <<<<<');
+                            addErrToLog(e);
+                            addLog('>>>>> <<<<<');
+                            if(e.message) {
+                                $('#errmsg').text(e.message);
+                                $('#erralert').removeClass('d-none');
+                            } else if(e.responseJSON.fail) {
+                                $('#errmsg').text(e.responseJSON.fail);
+                                $('#erralert').removeClass('d-none');
+                            }
+                            addLog('===== Log-in End =====');
+                        });
+                } catch(e) {
+                    console.log("Error navigator.credentials.get.");
+                    console.log(e);
+                    addLog('>>>>> Error navigator.credentials.get. <<<<<');
+                    addErrToLog(e);
+                    addLog('>>>>> <<<<<');
+                    if(e.message) {
+                        $('#errmsg').text(e.message);
+                        $('#erralert').removeClass('d-none');
+                    }
+                    addLog('===== Log-in End =====');
+                };
+            }).catch(function(e) {
+                console.log("Error Making assertion oprions.");
+                console.log(e);
+                addLog('>>>>> Error Making assertion oprions. <<<<<');
+                addErrToLog(e);
+                addLog('>>>>> <<<<<');
+                if(e.responseJSON.fail) {
+                    $('#errmsg').text(e.responseJSON.fail);
+                    $('#erralert').removeClass('d-none');
+                }
+                addLog('===== Log-in End1 =====');
+            });
+        });
+
+        $("#view_attestaion").click(function(e) {
+            e.preventDefault();
+            var username = $('input[name="view_username"]').val();
+
+            $.post("/webauthn_begin_activate", {
+                username: username,
+                checkExistUser: false
+            }).done(function(makeCredentialOptions) {
+                console.log(makeCredentialOptions);
+                addViewLog('----- MakeCredentialOptions -----');
+                addViewLog(JSON.stringify(makeCredentialOptions, undefined, 4));
+                addViewLog('----------');
+                if(makeCredentialOptions.responseJSON) {
+                    if(makeCredentialOptions.responseJSON.fail) {
+                        $('#errmsg').text(makeCredentialOptions.responseJSON.fail);
+                        $('#erralert').removeClass('d-none');
+                        return false;
+                    }
+                }
+                // Turn the challenge back into the accepted format
+                makeCredentialOptions.challenge = Uint8Array.from(
+                    atob(makeCredentialOptions.challenge), c => c.charCodeAt(0));
+                // Turn the user ID back into the accepted format
+                makeCredentialOptions.user.id = Uint8Array.from(
+                    atob(makeCredentialOptions.user.id), c => c.charCodeAt(0));
+                try{
+                    navigator.credentials.create({ publicKey: makeCredentialOptions })
+                        .then(function(publicKeyCredential) {
+                            console.log(publicKeyCredential);
+
+                            let attObj = new Uint8Array(
+                                publicKeyCredential.response.attestationObject);
+                            let clientDataJSON = new Uint8Array(
+                                publicKeyCredential.response.clientDataJSON);
+                            let rawId = new Uint8Array(
+                                publicKeyCredential.rawId);
+                            let registrationClientExtensions = publicKeyCredential.getClientExtensionResults();
+                            $.post('/view/attestation', {
+                                id: publicKeyCredential.id,
+                                rawId: b64enc(rawId),
+                                type: publicKeyCredential.type,
+                                attObj: b64enc(attObj),
+                                clientData: b64enc(clientDataJSON),
+                                registrationClientExtensions: JSON.stringify(registrationClientExtensions)
+                            }).done(function(response){
+                                console.log(response);
+                                if(response.success) {
+                                    $('#infomsg').text(response.success);
+                                    $('#infoalert').removeClass('d-none');
+                                } else if(response.responseJSON) {
+                                    if(response.responseJSON.fail) {
+                                        $('#errmsg').text(response.responseJSON.fail);
+                                        $('#erralert').removeClass('d-none');
+                                    }
+                                }
+                                addViewLog('===== Authenticator Attestation Response (Decoded) =====');
+                                addViewLog(JSON.stringify(response, undefined, 4));
+                                addViewLog('=====  =====');
+                            }).catch(function(e) {
+                                console.log("Error viewing credential.");
+                                console.log(e);
+                                if(e.responseJSON.fail) {
+                                    $('#errmsg').text(e.responseJSON.fail);
+                                    $('#erralert').removeClass('d-none');
+                                }
+                            });
+                        }).catch(function(e) {
+                            // No acceptable authenticator or user refused
+                            // consent. Handle appropriately.
+                            console.log("Error creating credential.");
+                            console.log(e);
+                            if(e.message) {
+                                $('#errmsg').text(e.message);
+                                $('#erralert').removeClass('d-none');
+                            } else if(e.responseJSON.fail) {
+                                $('#errmsg').text(e.responseJSON.fail);
+                                $('#erralert').removeClass('d-none');
+                            }
+                        });
+                } catch(e) {
+                    console.log("Error navigator.credentials.create.");
+                    console.log(e);
+                    if(e.message) {
+                        $('#errmsg').text(e.message);
+                        $('#erralert').removeClass('d-none');
+                    }
+                };
+            }).catch(function(e) {
+                console.log("Error Making credential oprions.");
+                console.log(e);
+                if(e.responseJSON.fail) {
+                    $('#errmsg').text(e.responseJSON.fail);
+                    $('#erralert').removeClass('d-none');
+                }
+            });
+        });
+        $("#view_assertion").click(function(e) {
+            e.preventDefault();
+            var username = $('input[name="view_username"]').val();
+
+            $.post("/webauthn_begin_assertion", {
+                username: username
+            }).done(function(assertionOptions) {
+                console.log(assertionOptions);
+                addViewLog('----- assertionOptions -----');
+                addViewLog(JSON.stringify(assertionOptions, undefined, 4));
+                addViewLog('----------');
+                if(assertionOptions.responseJSON) {
+                    if(assertionOptions.responseJSON.fail) {
+                        $('#errmsg').text(assertionOptions.responseJSON.fail);
+                        $('#erralert').removeClass('d-none');
+                        return false;
+                    }
+                }
+                // Turn the challenge back into the accepted format
+                assertionOptions.challenge = Uint8Array.from(
+                    atob(assertionOptions.challenge), c => c.charCodeAt(0));
+                assertionOptions.allowCredentials.forEach(function(listItem) {
+                    var fixedId = listItem.id.replace(
+                        /\_/g, "/").replace(/\-/g, "+");
+                    listItem.id = Uint8Array.from(
+                        atob(fixedId), c => c.charCodeAt(0));
+                });
+                try{
+                    navigator.credentials.get({ publicKey: assertionOptions })
+                        .then(function(assertedCredential) {
+                            console.log(assertedCredential);
+                            //verifyAssertion(assertedCredential);
+
+                            let authData = new Uint8Array(assertedCredential.response.authenticatorData);
+                            let clientDataJSON = new Uint8Array(assertedCredential.response.clientDataJSON);
+                            let rawId = new Uint8Array(assertedCredential.rawId);
+                            let sig = new Uint8Array(assertedCredential.response.signature);
+                            let assertionClientExtensions = assertedCredential.getClientExtensionResults();
+                            $.post('/view/assertion', {
+                                id: assertedCredential.id,
+                                rawId: b64enc(rawId),
+                                type: assertedCredential.type,
+                                authData: b64RawEnc(authData),
+                                clientData: b64RawEnc(clientDataJSON),
+                                signature: hexEncode(sig),
+                                assertionClientExtensions: JSON.stringify(assertionClientExtensions)
+                            }).done(function(response){
+                                console.log(response);
+                                if(response.success) {
+                                    $('#infomsg').text(response.success);
+                                    $('#infoalert').removeClass('d-none');
+                                } else if(response.responseJSON) {
+                                    if(response.responseJSON.fail) {
+                                        $('#errmsg').text(e.responseJSON.fail);
+                                        $('#erralert').removeClass('d-none');
+                                    }
+                                }
+                                addViewLog('===== Authenticator Assersion Response (Decoded) =====');
+                                addViewLog(JSON.stringify(response, undefined, 4));
+                                addViewLog('=====  =====');
+                            }).catch(function(e) {
+                                if(e.responseJSON.fail) {
+                                    $('#errmsg').text(e.responseJSON.fail);
+                                    $('#erralert').removeClass('d-none');
+                                }
+                            });
+                        }).catch(function(e) {
+                            // No acceptable authenticator or user refused
+                            // consent. Handle appropriately.
+                            console.log("Error during assertion.");
+                            console.log(e);
+                            if(e.message) {
+                                $('#errmsg').text(e.message);
+                                $('#erralert').removeClass('d-none');
+                            } else if(e.responseJSON.fail) {
+                                $('#errmsg').text(e.responseJSON.fail);
+                                $('#erralert').removeClass('d-none');
+                            }
+                        });
+                } catch(e) {
+                    console.log("Error navigator.credentials.get.");
+                    console.log(e);
+                    if(e.message) {
+                        $('#errmsg').text(e.message);
+                        $('#erralert').removeClass('d-none');
+                    }
+                };
+            }).catch(function(e) {
+                console.log("Error Making assertion oprions.");
+                console.log(e);
+                if(e.responseJSON.fail) {
+                    $('#errmsg').text(e.responseJSON.fail);
+                    $('#erralert').removeClass('d-none');
+                }
+            });
+        });
+
+        $("#rlLink").click(function(e) {
+            $('#rlModal').show(300);
+            $('#usersModal').hide(300);
+            $('#userDetailModal').hide(300);
+            $('#viewModal').hide(300);
+            $('#optionsModal').hide(300);
+            $('#rlLink').addClass('active');
+            $('#usersLink').removeClass('active');
+            $('#viewLink').removeClass('active');
+            $('#osLink').removeClass('active');
+
+            $('#infomsg').text('');
+            $('#infoalert').addClass('d-none');
+            $('#errmsg').text('');
+            $('#erralert').addClass('d-none');
+        });
+        $("#usersLink, .backtoUsersBtn").click(function(e) {
+            $('#usersModal').show(300);
+            $('#userDetailModal').hide(300);
+            $('#rlModal').hide(300);
+            $('#viewModal').hide(300);
+            $('#optionsModal').hide(300);
+            $('#usersLink').addClass('active');
+            $('#rlLink').removeClass('active');
+            $('#viewLink').removeClass('active');
+            $('#osLink').removeClass('active');
+
+            $('#infomsg').text('');
+            $('#infoalert').addClass('d-none');
+            $('#errmsg').text('');
+            $('#erralert').addClass('d-none');
+
+            if (e.currentTarget.id == "usersLink") {
+                $("#usersTable").empty();
+                $.LoadingOverlay("show", true);
+                $.ajax({
+                    method: "GET",
+                    url: "/users",
+                    dataType: "json"
+                }).done(function( data, textStatus, jqXHR ) {
+                    for(let u of data.users) {
+                        $("#usersTable").append('<tr><td class="text-center"><i class="checkIcon material-icons text-primary" data-userno="' + u.id + '">check_box_outline_blank</i></td><td class="text-center"><a href="#" class="userDetailLink" data-userno="' + u.id + '">' + u.id + '</a></td><td>' + u.username + '</td><td>' + u.display_name + '</td><td>' + u.credential_id + '</td></tr>');
+                    }
+                }).fail(function( jqXHR, textStatus, errorThrown ) {
+                    console.log("Error getting Users.");
+                    console.log(e);
+                    $('#errmsg').text(jqXHR.status + ' ' + jqXHR.statusText);
+                    $('#erralert').removeClass('d-none');
+                }).always(function( ) {
+                    $.LoadingOverlay("hide", true);
+                });
+            }
+        });
+        $("#usersTable").on('click', ".userDetailLink", function(e) {
+            $('#userDetailModal').show(300);
+            $('#rlModal').hide(300);
+            $('#viewModal').hide(300);
+            $('#optionsModal').hide(300);
+            $('#usersModal').hide(300);
+            $('#usersLink').addClass('active');
+            $('#rlLink').removeClass('active');
+            $('#viewLink').removeClass('active');
+            $('#osLink').removeClass('active');
+
+            $('#infomsg').text('');
+            $('#infoalert').addClass('d-none');
+            $('#errmsg').text('');
+            $('#erralert').addClass('d-none');
+
+            $.LoadingOverlay("show", true);
+            $.ajax({
+                method: "GET",
+                url: "/user/" + e.currentTarget.dataset.userno,
+                dataType: "json"
+            }).done(function( data, textStatus, jqXHR ) {
+                $("#userId").text(data.id);
+                $("#userName").text(data.username);
+                $("#displayName").text(data.display_name);
+                $("#uKey").text(data.ukey);
+                $("#credId").text(data.credential_id);
+                $("#signCount").text(data.sign_count);
+                $("#rpId").text(data.rp_id);
+                $("#iconUrl").text(data.icon_url);
+                $("#publicKey").text(JSON.stringify(data.pub_key));
+                $("#attOption").text(data.att_option);
+                $("#responseDecoded").text(data.response_dec);
+            }).fail(function( jqXHR, textStatus, errorThrown ) {
+                console.log("Error getting User.");
+                console.log(e);
+                $('#errmsg').text(jqXHR.status + ' ' + jqXHR.statusText);
+                $('#erralert').removeClass('d-none');
+            }).always(function( ) {
+                $.LoadingOverlay("hide", true);
+            });
+        });
+        $("#viewLink").click(function(e) {
+            $('#viewModal').show(300);
+            $('#optionsModal').hide(300);
+            $('#usersModal').hide(300);
+            $('#userDetailModal').hide(300);
+            $('#rlModal').hide(300);
+            $('#viewLink').addClass('active');
+            $('#osLink').removeClass('active');
+            $('#usersLink').removeClass('active');
+            $('#rlLink').removeClass('active');
+
+            $('#infomsg').text('');
+            $('#infoalert').addClass('d-none');
+            $('#errmsg').text('');
+            $('#erralert').addClass('d-none');
+        });
+        $("#osLink").click(function(e) {
+            $('#optionsModal').show(300);
+            $('#viewModal').hide(300);
+            $('#usersModal').hide(300);
+            $('#userDetailModal').hide(300);
+            $('#rlModal').hide(300);
+            $('#osLink').addClass('active');
+            $('#viewLink').removeClass('active');
+            $('#usersLink').removeClass('active');
+            $('#rlLink').removeClass('active');
+
+            $('#infomsg').text('');
+            $('#infoalert').addClass('d-none');
+            $('#errmsg').text('');
+            $('#erralert').addClass('d-none');
+        });
+
+        $("#clearlogIcon").click(function(e) { clearLog(); });
+        $("#clearViewlogIcon").click(function(e) { clearViewLog(); });
+    });
+
+    </script>
+
+</body>
 </html>

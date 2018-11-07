@@ -104,6 +104,9 @@ venv.bak/
 # mypy
 .mypy_cache/
 
+# vscode
+.vscode
+
 # PyWebAuthn
 py_webauthn.env
 webauthn.db

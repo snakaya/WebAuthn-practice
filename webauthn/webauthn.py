@@ -1,5 +1,6 @@
 from __future__ import print_function
 
+import codecs
 import base64
 import hashlib
 import json
@@ -12,14 +13,43 @@ import six
 
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives.asymmetric.ec import ECDSA
-from cryptography.hazmat.primitives.asymmetric.ec import EllipticCurvePublicNumbers
-from cryptography.hazmat.primitives.asymmetric.ec import SECP256R1
+from cryptography.hazmat.primitives.asymmetric.ec import ECDSA, EllipticCurvePublicNumbers, SECP256R1, EllipticCurvePublicKey
+from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicKey, RSAPublicNumbers
+from cryptography.hazmat.primitives.asymmetric.padding import PKCS1v15
 from cryptography.hazmat.primitives.hashes import SHA256
 from cryptography.x509 import load_der_x509_certificate
+from cryptography.hazmat.primitives.serialization import Encoding
 from OpenSSL import crypto
 
-import const
+#import const
+from . import const
+
+
+# REF: https://www.iana.org/assignments/cose/cose.xhtml
+# COSE Key Name
+COSE_KEYNAME_KTY = 1
+COSE_KEYNAME_KID = 2
+COSE_KEYNAME_ALG = 3
+COSE_KEYNAME_KEYOPS = 4
+COSE_KEYNAME_BASEIV = 5
+# COSE Key Label
+COSE_KEYLABEL_KTY = 'kty'
+COSE_KEYLABEL_KID = 'kid'
+COSE_KEYLABEL_ALG = 'alg'
+COSE_KEYLABEL_KEYOPS = 'key_ops'
+COSE_KEYLABEL_BASEIV = 'Base IV'
+# COSE Algorithms
+COSE_ALG_ES256 = -7    # ECDSA w/ SHA-256  a.k.a. ES256
+COSE_ALG_RS256 = -257  # RSASSA-PKCS1-v1_5 w/ SHA-256  a.k.a. RS256
+# COSE Algorithms Label
+COSE_ALGLABEL_ES256 = 'ES256'
+COSE_ALGLABEL_RS256 = 'RS256'
+# COSE Algorithms Numbers
+COSE_ALG_ES256_X = -2
+COSE_ALG_ES256_Y = -3
+
+COSE_ALG_RS256_N = -1
+COSE_ALG_RS256_E = -2
 
 
 # Only supporting 'None', 'Basic', and 'Self Attestation' attestation types for now.
@@ -29,15 +59,17 @@ AT_NONE = 'None'
 AT_ATTESTATION_CA = 'AttCA'
 AT_SELF_ATTESTATION = 'Self'
 
+
 SUPPORTED_ATTESTATION_TYPES = (
     AT_BASIC,
     AT_NONE,
     AT_SELF_ATTESTATION
 )
 
-# Only supporting 'fido-u2f' and 'none' attestation formats for now.
 SUPPORTED_ATTESTATION_FORMATS = (
+    'packed',
     'fido-u2f',
+    'android-safetynet',
     'none',
 )
 
@@ -50,8 +82,8 @@ TYPE_GET = 'webauthn.get'
 
 # Expected client extensions
 EXPECTED_CLIENT_EXTENSIONS = {
-    'appid': None,
-    'loc': None
+    #'appid': None,
+    #'loc': None
 }
 
 # Expected authenticator extensions
@@ -62,9 +94,16 @@ EXPECTED_AUTHENTICATOR_EXTENSIONS = {
 class AuthenticationRejectedException(Exception):
     pass
 
-
 class RegistrationRejectedException(Exception):
     pass
+
+class WebAuthnTools(object):
+    
+    def __init__(self):
+        pass
+    
+    def format_user_pubkey(self, pub_key):
+        return _encodeToJWK_public_key(_webauthn_b64_decode(pub_key))
 
 
 class WebAuthnMakeCredentialOptions(object):
@@ -96,31 +135,48 @@ class WebAuthnMakeCredentialOptions(object):
             'user': {
                 'id': self.user_id,
                 'name': self.username,
-                'displayName': self.display_name
+                'displayName': self.display_name,
+                'icon': self.icon_url
+            },
+            'authenticatorSelection': {
+                #'userVerification': 'required',                 # required, preferred, discouraged
+                #'requireResidentKey': True,                     # 
+                #'authenticatorAttachment': 'cross-platform'     # CTAP or Platform (TPM, TEE etc..)  cross-platform, platform
             },
             'pubKeyCredParams': [
                 {
-                    'alg': 'ES256',
+                    'alg': -257,                                # RS256
                     'type': 'public-key',
                 },
                 {
-                    'alg': -7,
+                    'alg': -7,                                  # ES256
                     'type': 'public-key',
                 }
             ],
             'timeout': 60000,  # 1 minute.
-            'excludeCredentials': [],
+            'allowCredentials': [
+                #{
+                #    'type': 'public-key',
+                #    'id': id,
+                #    'transports': [ 'usb', 'nfc', 'ble', 'internal' ],
+                #}
+            ],
+            'excludeCredentials': [
+                #{
+                #    'type': 'public-key',
+                #    'id': id,
+                #    'transports': [ 'usb', 'nfc', 'ble', 'internal' ],
+                #}
+            ],
             # Relying Parties may use AttestationConveyancePreference to specify their
             # preference regarding attestation conveyance during credential generation.
             'attestation': 'direct',  # none, indirect, direct
             'extensions': {
                 # Include location information in attestation.
-                'webauthn.loc': True
+                #'webauthn.loc': True
+                #'webauthn.uvm': True
             }
         }
-        
-        if self.icon_url:
-            registration_dict['user']['icon'] = self.icon_url
 
         return registration_dict
 
@@ -148,7 +204,7 @@ class WebAuthnAssertionOptions(object):
         acceptable_credential = {
             'type': 'public-key',
             'id': self.webauthn_user.credential_id,
-            'transports': ['usb', 'nfc', 'ble']
+            'transports': ['usb', 'nfc', 'ble', 'internal']
         }
 
         assertion_dict = {
@@ -158,7 +214,9 @@ class WebAuthnAssertionOptions(object):
                 acceptable_credential,
             ],
             'rpId': self.webauthn_user.rp_id,
-            # 'extensions': {}
+            'extensions': {
+                #'webauthn.uvm': True
+            }
         }
 
         return assertion_dict
@@ -251,6 +309,141 @@ class WebAuthnRegistrationResponse(object):
         #           be performed.
         self.none_attestation_permitted = none_attestation_permitted
 
+        self.debug_log = []
+
+    def view(self):
+        credential_id = self.registration_response.get('id')
+        raw_id = self.registration_response.get('rawId')
+        attestation_object = self.registration_response.get('attObj')
+        registrationClientExtensions = self.registration_response.get('registrationClientExtensions')
+        rce = json.loads(registrationClientExtensions)
+
+        decoded_clientdata = _webauthn_b64_decode(self.registration_response.get('clientData', '').decode('utf-8'))
+        clientdata = json.loads(decoded_clientdata)
+
+        att_obj = cbor2.loads(_webauthn_b64_decode(attestation_object))
+        att_stmt = att_obj.get('attStmt')
+        auth_data = att_obj.get('authData')
+        fmt = att_obj.get('fmt')
+
+        auth_data_rp_id_hash = _get_auth_data_rp_id_hash(auth_data)
+        flags = struct.unpack('!B', auth_data[32])[0]
+        flags_dict = []
+        if (flags & const.USER_PRESENT) == 0x01:
+            flags_dict.append('UP')
+        if (flags & const.USER_VERIFIED) == 0x04:
+            flags_dict.append('UV')
+        if (flags & const.ATTESTATION_DATA_INCLUDED) == 0x40:
+            flags_dict.append('AT')
+        if (flags & const.EXTENSION_DATA_INCLUDED) == 0x80:
+            flags_dict.append('ED')
+
+        sc = auth_data[33:37]
+        sign_count = struct.unpack('!I', sc)[0]
+
+        attestation_data = auth_data[37:]
+        aaguid = attestation_data[:16]
+        credential_id_len = struct.unpack('!H', attestation_data[16:18])[0]
+        cred_id = attestation_data[18:18 + credential_id_len]
+        credential_pub_key = attestation_data[18 + credential_id_len:]
+
+        cpk = cbor2.loads(credential_pub_key)
+
+        cpk_dict = {}
+        for k, v in cpk.items():
+            if(isinstance(v, str)):
+                cpk_dict[k] = _webauthn_b64_encode(v)
+            else:
+                cpk_dict[k] = v
+
+        if fmt == 'packed':
+            alg = att_stmt['alg']
+            signature = att_stmt['sig']
+            if 'x5c' in att_stmt:
+                att_cert = att_stmt.get('x5c')[0]
+                x509_att_cert = load_der_x509_certificate(att_cert, default_backend())
+
+            elif 'ecdaaKeyId' in att_stmt:
+                ecdaaKeyId = att_stmt.get['ecdaaKeyId']
+
+                attestation_type = AT_ECDAA
+                trust_path = [] # TODO: ECDAA trust chain.
+
+            else:
+                attestation_type = AT_SELF_ATTESTATION
+                trust_path = []
+
+            attStmt = {
+                'alg' : alg,
+                'sig' : _webauthn_b64_encode(signature)
+            }
+            if 'x5c' in att_stmt:
+                attStmt['x5c'] = x509_att_cert.public_bytes(Encoding.PEM)
+            elif 'ecdaaKeyId' in att_stmt:
+                attStmt['ecdaaKeyId'] = _webauthn_b64_encode(ecdaaKeyId)
+        
+        elif fmt == 'android-safetynet':
+            api_ver = att_stmt['ver']
+            api_response = att_stmt['response']
+
+            res_header_encoded, res_payload_encoded, res_sig = api_response.split('.')
+            res_header_decoded = _webauthn_b64_decode(res_header_encoded)
+            res_payload_decoded = _webauthn_b64_decode(res_payload_encoded)
+
+            attestation_type = AT_BASIC
+            trust_path = [] # TODO:
+
+            attStmt = {
+                'ver' : api_ver,
+                'response' : {'header': json.loads(res_header_decoded), 'payload': json.loads(res_payload_decoded), 'sig': res_sig}
+            }
+        
+        elif fmt == 'fido-u2f': #sig, x5c
+            signature = att_stmt['sig']
+            att_cert = att_stmt.get('x5c')[0]
+            x509_att_cert = load_der_x509_certificate(att_cert, default_backend())
+
+            attestation_type = AT_BASIC
+            trust_path = [x509_att_cert]
+
+            attStmt = {
+                'sig' : _webauthn_b64_encode(signature),
+                'x5c' : x509_att_cert.public_bytes(Encoding.PEM)
+            }
+
+        elif fmt == 'none':
+            attestation_type = AT_NONE
+            trust_path = []
+
+            attStmt = att_stmt
+        else:
+            attStmt = att_stmt
+            self.addLog('Unable to verify attestation statement format ({}).'.format(fmt))
+
+        return {
+            'id' : credential_id,
+            'rawId' : raw_id,
+            "response" : {
+                'clientDataJSON' : clientdata,
+                'attestationObject' : {
+                    'fmt' : fmt,
+                    'attStmt' : attStmt,
+                    'authenticatorData' : {
+                        'rpIdHashk' : _webauthn_b64_encode(auth_data_rp_id_hash),
+                        'flags' : flags_dict,
+                        'signCount' : sign_count,
+                        'attestedCredentialData' : {
+                            'aaguid' : codecs.encode(aaguid, 'hex_codec'),
+                            'credentialIdLength' : credential_id_len,
+                            'credentialId' : _webauthn_b64_encode(cred_id),
+                            'credentialPublicKey' : cpk_dict
+                        },
+                        'extensions' : rce
+                    }
+                }
+            }
+        }
+
     def _verify_attestation_statement(self, fmt, att_stmt, auth_data, client_data_hash):
         '''Verification procedure: The procedure for verifying an attestation statement,
         which takes the following verification procedure inputs:
@@ -275,15 +468,229 @@ class WebAuthnRegistrationResponse(object):
         also be able to build the attestation certificate chain if the client did not
         provide this chain in the attestation information.
         '''
-        if fmt == 'fido-u2f':
+        self.addLog('----- [Registration] [Verify_AttStmt] Start -----')
+        self.addLog('Stmt fmt=' + fmt)
+
+        if fmt == 'packed':
+            # Step 1.
+            if 'x5c' in att_stmt: # Basic
+                print('packed AttStmtFmt: x5c/Basic')
+                self.addLog('packed AttStmtFmt: x5c/Basic')
+                
+                # Step 1-1.
+                # Get crtificate's publickey.
+                att_cert = att_stmt.get('x5c')[0]
+                x509_att_cert = load_der_x509_certificate(att_cert, default_backend())
+                certificate_public_key = x509_att_cert.public_key()
+                if not isinstance(certificate_public_key.curve, SECP256R1):
+                    self.addLog('Bad certificate public key.')
+                    raise RegistrationRejectedException('Bad certificate public key.')
+                alg_type = None
+                if isinstance(certificate_public_key, EllipticCurvePublicKey):
+                    alg_type = COSE_ALG_ES256
+                elif isinstance(certificate_public_key, RSAPublicKey):
+                    alg_type = COSE_ALG_RS256
+                else:
+                    self.addLog('Bad certificate public key.')
+                    raise RegistrationRejectedException('Bad certificate public key.')
+
+                # Step 1-2.
+                # Verify signature by certificate's publickey.
+                alg = att_stmt['alg']
+                signature = att_stmt['sig']
+                verification_data = ''.join([
+                    auth_data,
+                    client_data_hash ])
+
+                if alg not in [COSE_ALG_ES256, COSE_ALG_RS256]:
+                    raise RegistrationRejectedException('Invalid algorithm of x5c certificate.')
+                try:
+                    _verify_signature(alg, signature, verification_data, certificate_public_key)
+                except InvalidSignature:
+                    self.addLog('Invalid signature received.')
+                    raise RegistrationRejectedException('Invalid signature received.')
+
+                # Step 1-3.
+                #
+                # TODO: If attestnCert contains an extension with OID 1.3.6.1.4.1.45724.1.1.4 (id-fido-gen-ce-aaguid)
+                #  verify that the value of this extension matches the aaguid in authenticatorData.
+
+                # Step 1-4.
+                #
+                # If successful, return attestation type Basic with the
+                # attestation trust path set to x5c.
+                attestation_data = auth_data[37:]
+                aaguid = attestation_data[:16]
+                credential_id_len = struct.unpack('!H', attestation_data[16:18])[0]
+                cred_id = attestation_data[18:18 + credential_id_len]
+                credential_pub_key = attestation_data[18 + credential_id_len:]
+                cpk = cbor2.loads(credential_pub_key)
+                print(list(cpk.items()))
+
+                credential_alg, public_key = _get_publickey(cpk)
+                public_key_encoded = _encode_public_key(credential_alg, public_key)
+
+                attestation_type = AT_BASIC
+                trust_path = [x509_att_cert]
+                return (attestation_type, trust_path, public_key_encoded, cred_id)
+
+            # Step 2.
+            elif 'ecdaaKeyId' in att_stmt: # ECDAA
+                print('packed AttStmtFmt: ecdaaKeyId/ECDAA')
+                self.addLog('packed AttStmtFmt: ecdaaKeyId/ECDAA')
+
+                self.addLog('Unsupported packed semantic (ECDAA).')
+                raise RegistrationRejectedException('Unsupported packed semantic (ECDAA).')
+
+            # Step 3.
+            else:  # Self
+                print('packed AttStmtFmt: nor/Self')
+                self.addLog('packed AttStmtFmt: nor/Self')
+                # Step 3-1.
+                #
+                # Get statement's algorithm and signature.
+                alg = att_stmt['alg']
+                if alg not in [COSE_ALG_ES256, COSE_ALG_RS256]:
+                    self.addLog('Unsupported algorithm ({}).'.format(alg))
+                    raise RegistrationRejectedException('Unsupported algorithm.')
+                signature = att_stmt['sig']
+
+                # Step 3-2.
+                #
+                # Check credential's algorithm type as one in authenticatorData.
+                attestation_data = auth_data[37:]
+                credential_id_len = struct.unpack('!H', attestation_data[16:18])[0]
+                cred_id = attestation_data[18:18 + credential_id_len]
+                credential_pub_key = attestation_data[18 + credential_id_len:]
+                cpk = cbor2.loads(credential_pub_key)
+                print(list(cpk.items()))
+
+                if cpk[COSE_KEYNAME_ALG] != COSE_ALG_ES256 and cpk[COSE_KEYNAME_ALG] != COSE_ALG_RS256:
+                    self.addLog('Unsupported algorithm.')
+                    raise RegistrationRejectedException('Unsupported algorithm.')
+                if cpk[COSE_KEYNAME_ALG] != alg:
+                    self.addLog('Unmatch algorithm as authenticatorData.')
+                    raise RegistrationRejectedException('Unmatch algorithm as authenticatorData.')
+                
+                # Step 3-2.
+                #
+                # Verify sig by credential publickey.
+                credential_alg, public_key = _get_publickey(cpk)
+                public_key_encoded = _encode_public_key(credential_alg, public_key)
+                print(_encodeToJWK_public_key(public_key_encoded))
+
+                verification_data = ''.join([
+                    auth_data,
+                    client_data_hash ])
+
+                try:
+                    _verify_signature(credential_alg, signature, verification_data, public_key)
+                except InvalidSignature:
+                    self.addLog('Invalid signature received.')
+                    raise RegistrationRejectedException('Invalid signature received.')
+
+                attestation_type = AT_SELF_ATTESTATION
+                trust_path = []
+                return (attestation_type, trust_path, public_key_encoded, cred_id)
+
+        elif fmt == 'android-safetynet': # Basic
+            # Step 1.
+            #
+            # Get and decode JWS response.
+            api_ver = att_stmt['ver']
+            api_response = att_stmt['response']
+
+            res_header_encoded, res_payload_encoded, res_sig = api_response.split('.')
+            res_header_decoded = _webauthn_b64_decode(res_header_encoded)
+            res_payload_decoded = _webauthn_b64_decode(res_payload_encoded)
+            res_sig_decoded = _webauthn_b64_decode(res_sig)
+
+            res_header = json.loads(res_header_decoded)
+            res_payload = json.loads(res_payload_decoded)
+
+            attestation_data = auth_data[37:]
+            credential_id_len = struct.unpack('!H', attestation_data[16:18])[0]
+            cred_id = attestation_data[18:18 + credential_id_len]
+            credential_pub_key = attestation_data[18 + credential_id_len:]
+            cpk = cbor2.loads(credential_pub_key)
+            credential_alg, public_key = _get_publickey(cpk)
+            public_key_encoded = _encode_public_key(credential_alg, public_key)
+
+            # Step 2.
+            #
+            # Verify that response is a valid SafetyNet response of version ver.
+            # TODO: What's mean?
+
+            # Step 3.
+            #
+            # Verify that the nonce in the response is identical to 
+            # the SHA-256 hash of the concatenation of authenticatorData and clientDataHash.
+            verification_data = ''.join([
+                    auth_data,
+                    client_data_hash ])
+            hash = base64.b64encode(hashlib.sha256(verification_data).digest())
+            if res_payload.get('nonce') != hash:
+                self.addLog('Invalid nonce hash.')
+                raise RegistrationRejectedException('Invalid nonce hash.')
+
+            # Step 4.
+            #
+            # Verify that the attestation certificate is issued to the hostname "attest.android.com"
+            if 'x5c' not in res_header or 'alg' not in res_header:
+                self.addLog('Attestation statement must be a valid CBOR object.')
+                raise RegistrationRejectedException('Attestation statement must be a valid CBOR object.')
+            
+            certs = []
+            
+            for att_cert in res_header.get('x5c'):
+                x509_att_cert = load_der_x509_certificate(base64.b64decode(att_cert), default_backend())
+                certs.append(x509_att_cert)
+            if len(certs) == 0:
+                self.addLog('No X.509 certs available.')
+                raise RegistrationRejectedException('No X.509 certs available.')
+            
+            success = False 
+            for crt in certs:
+                print(crt)
+                for attr in crt.subject:
+                    print(attr)
+                    if attr.oid.dotted_string == '2.5.4.3' and attr.value == 'attest.android.com':
+                        certificate_public_key = crt.public_key()
+                        verification_data = ''.join([res_header_encoded, '.', res_payload_encoded])
+                        certificate_alg = COSE_ALG_ES256 if res_header['alg'] == COSE_ALGLABEL_ES256 else (COSE_ALG_RS256 if res_header['alg'] == COSE_ALGLABEL_RS256 else '')
+                        try:
+                            _verify_signature(certificate_alg, res_sig_decoded, verification_data, certificate_public_key)
+                            success = True
+                            break
+                        except InvalidSignature:
+                            self.addLog('Invalid certificate\'s signature received.')
+                            raise RegistrationRejectedException('Invalid certificate\'s signature received.')
+                if success:
+                    break
+            if success == False:
+                self.addLog('Cannot valid certificate\'s signature.')
+                raise RegistrationRejectedException('Cannot valid certificate\'s signature.')
+
+            # Step 5.
+            #
+            # Verify that the ctsProfileMatch attribute in the payload of response is true.
+            if res_payload.get('ctsProfileMatch') == False:
+                self.addLog('ctsProfileMatch is not True.')
+                raise RegistrationRejectedException('ctsProfileMatch is not True.')
+
+            attestation_type = AT_BASIC
+            trust_path = certs
+            return (attestation_type, trust_path, public_key_encoded, cred_id)
+
+        elif fmt == 'fido-u2f':
             # Step 1.
             #
             # Verify that attStmt is valid CBOR conforming to the syntax
             # defined above and perform CBOR decoding on it to extract the
             # contained fields.
             if 'x5c' not in att_stmt or 'sig' not in att_stmt:
-                raise RegistrationRejectedException(
-                    'Attestation statement must be a valid CBOR object.')
+                self.addLog('Attestation statement must be a valid CBOR object.')
+                raise RegistrationRejectedException('Attestation statement must be a valid CBOR object.')
 
             # Step 2.
             #
@@ -295,6 +702,7 @@ class WebAuthnRegistrationResponse(object):
             x509_att_cert = load_der_x509_certificate(att_cert, default_backend())
             certificate_public_key = x509_att_cert.public_key()
             if not isinstance(certificate_public_key.curve, SECP256R1):
+                self.addLog('Bad certificate public key.')
                 raise RegistrationRejectedException('Bad certificate public key.')
 
             # Step 3.
@@ -317,68 +725,10 @@ class WebAuthnRegistrationResponse(object):
             # specification, i.e., required for the key type "kty" and algorithm "alg" (see
             # Section 8 of [RFC8152]).
             cpk = cbor2.loads(credential_pub_key)
+            print(list(cpk.items()))
 
-            # Credential public key parameter names via the COSE_Key spec (for ES256).
-            alg_key = 3
-            x_key = -2
-            y_key = -3
-
-            if alg_key not in cpk:
-                raise RegistrationRejectedException(
-                    "Credential public key missing required algorithm parameter.")
-
-            required_keys = {alg_key, x_key, y_key}
-            cpk_keys = cpk.keys()
-
-            if not set(cpk_keys).issuperset(required_keys):
-                raise RegistrationRejectedException(
-                    'Credential public key must match COSE_Key spec.')
-
-            # A COSEAlgorithmIdentifier's value is a number identifying
-            # a cryptographic algorithm. The algorithm identifiers SHOULD
-            # be values registered in the IANA COSE Algorithms registry
-            # [IANA-COSE-ALGS-REG], for instance, -7 for "ES256" and -257
-            # for "RS256".
-            # https://www.iana.org/assignments/cose/cose.xhtml#algorithms
-
-            # For now we are only supporting ES256 as an algorithm.
-            ES256 = -7
-            if cpk[alg_key] != ES256:
-                raise RegistrationRejectedException('Unsupported algorithm.')
-
-            # Step 4.
-            #
-            # Convert the COSE_KEY formatted credentialPublicKey (see Section 7
-            # of [RFC8152]) to CTAP1/U2F public Key format [FIDO-CTAP].
-
-            # Let publicKeyU2F represent the result of the conversion operation
-            # and set its first byte to 0x04. Note: This signifies uncompressed
-            # ECC key format.
-            public_key_u2f = ''  # 0x04 byte prepended in `_encode_public_key` function.
-
-            # Extract the value corresponding to the "-2" key (representing x coordinate)
-            # from credentialPublicKey, confirm its size to be of 32 bytes and concatenate
-            # it with publicKeyU2F. If size differs or "-2" key is not found, terminate
-            # this algorithm and return an appropriate error.
-            x = cpk[x_key].encode('hex')
-            if len(x) != 64:
-                raise RegistrationRejectedException('Bad public key.')
-            x_long = long(x, 16)
-
-            # Extract the value corresponding to the "-3" key (representing y coordinate)
-            # from credentialPublicKey, confirm its size to be of 32 bytes and concatenate
-            # it with publicKeyU2F. If size differs or "-3" key is not found, terminate
-            # this algorithm and return an appropriate error.
-            y = cpk[y_key].encode('hex')
-            if len(y) != 64:
-                raise RegistrationRejectedException('Bad public key.')
-            y_long = long(y, 16)
-
-            user_ec = EllipticCurvePublicNumbers(
-                x_long, y_long,
-                SECP256R1()).public_key(
-                    backend=default_backend())
-            public_key_u2f = _encode_public_key(user_ec)
+            credential_alg, public_key = _get_publickey(cpk)
+            public_key_encoded = _encode_public_key(credential_alg, public_key)
 
             # Step 5.
             #
@@ -392,15 +742,16 @@ class WebAuthnRegistrationResponse(object):
                 auth_data_rp_id_hash,
                 client_data_hash,
                 cred_id,
-                public_key_u2f])
+                public_key_encoded])
 
             # Step 6.
             #
             # Verify the sig using verificationData and certificate public
             # key per [SEC1].
             try:
-                certificate_public_key.verify(signature, verification_data, ECDSA(SHA256()))
+                _verify_signature(credential_alg, signature, verification_data, certificate_public_key)
             except InvalidSignature:
+                self.addLog('Invalid signature received.')
                 raise RegistrationRejectedException('Invalid signature received.')
 
             # Step 7.
@@ -409,11 +760,12 @@ class WebAuthnRegistrationResponse(object):
             # attestation trust path set to x5c.
             attestation_type = AT_BASIC
             trust_path = [x509_att_cert]
-            return (attestation_type, trust_path, public_key_u2f, cred_id)
+            return (attestation_type, trust_path, public_key_encoded, cred_id)
         elif fmt == 'none':
             # `none` - indicates that the Relying Party is not interested in
             # authenticator attestation.
             if not self.none_attestation_permitted:
+                self.addLog('Authenticator attestation is required.')
                 raise RegistrationRejectedException('Authenticator attestation is required.')
 
             attestation_data = auth_data[37:]
@@ -423,92 +775,70 @@ class WebAuthnRegistrationResponse(object):
 
             cpk = cbor2.loads(credential_pub_key)
 
-            alg_key = 3
-            x_key = -2
-            y_key = -3
-
-            if alg_key not in cpk:
-                raise RegistrationRejectedException(
-                    "Credential public key missing required algorithm parameter.")
-
-            required_keys = {alg_key, x_key, y_key}
-            cpk_keys = cpk.keys()
-
-            if not set(cpk_keys).issuperset(required_keys):
-                raise RegistrationRejectedException(
-                    'Credential public key must match COSE_Key spec.')
-
-            public_key_u2f = ''
-
-            x = cpk[x_key].encode('hex')
-            if len(x) != 64:
-                raise RegistrationRejectedException('Bad public key.')
-            x_long = long(x, 16)
-
-            y = cpk[y_key].encode('hex')
-            if len(y) != 64:
-                raise RegistrationRejectedException('Bad public key.')
-            y_long = long(y, 16)
-
-            ES256 = -7
-            if cpk[alg_key] != ES256:
-                raise RegistrationRejectedException('Unsupported algorithm.')
-
-            user_ec = EllipticCurvePublicNumbers(
-                x_long, y_long,
-                SECP256R1()).public_key(
-                    backend=default_backend())
-            public_key_u2f = _encode_public_key(user_ec)
+            credential_alg, public_key = _get_publickey(cpk)
+            public_key_encoded = _encode_public_key(credential_alg, public_key)
 
             # Step 1.
             #
             # Return attestation type None with an empty trust path.
             attestation_type = AT_NONE
             trust_path = []
-            return (attestation_type, trust_path, public_key_u2f, cred_id)
+            return (attestation_type, trust_path, public_key_encoded, cred_id)
         else:
+            self.addLog('Invalid format.')
             raise RegistrationRejectedException('Invalid format.')
+        self.addLog('----- [Registration] [Verify_AttStmt] End -----')
 
     def verify(self):
+        print('----- verify -----')
         try:
             # Step 1.
             #
             # Let JSONtext be the result of running UTF-8 decode on the value of
             # response.clientDataJSON.
-            json_text = self.registration_response.get('clientData', '').decode('utf-8')
+            self.addLog('----- [Registration] [Verify:Step1/2] Parse Posted FormData. -----')
+            print('----- Step1 -----')
+            u8_clientdata = self.registration_response.get('clientData', '').decode('utf-8')
 
             # Step 2.
             #
             # Let C, the client data claimed as collected during the credential
             # creation, be the result of running an implementation-specific JSON
             # parser on JSONtext.
-            decoded_cd = _webauthn_b64_decode(json_text)
+            print('----- Step2 -----')
+            decoded_cd = _webauthn_b64_decode(u8_clientdata)
             c = json.loads(decoded_cd)
 
-            credential_id = self.registration_response.get('id')
-            raw_id = self.registration_response.get('rawId')
             attestation_object = self.registration_response.get('attObj')
-            credential_type = self.registration_response.get('type')
 
             # Step 3.
             #
             # Verify that the value of C.type is webauthn.create.
+            self.addLog('----- [Registration] [Verify:Step3] Verify "type" value. -----')
+            print('----- Step3 -----')
             received_type = c.get('type')
             if not _verify_type(received_type, TYPE_CREATE):
+                self.addLog('Invalid type.')
                 raise RegistrationRejectedException('Invalid type.')
 
             # Step 4.
             #
             # Verify that the value of C.challenge matches the challenge that was sent
             # to the authenticator in the create() call.
+            self.addLog('----- [Registration] [Verify:Step4] Verify "challenge" value. -----')
+            print('----- Step4 -----')
             received_challenge = c.get('challenge')
             if not _verify_challenge(received_challenge, self.challenge):
+                self.addLog('Unable to verify challenge.')
                 raise RegistrationRejectedException('Unable to verify challenge.')
 
             # Step 5.
             #
             # Verify that the value of C.origin matches the Relying Party's origin.
+            self.addLog('----- [Registration] [Verify:Step5] Verify "origin" value. -----')
+            print('----- Step5 -----')
             if not _verify_origin(c, self.origin):
+                self.addLog('Unable to verify origin.')
                 raise RegistrationRejectedException('Unable to verify origin.')
 
             # Step 6.
@@ -518,14 +848,16 @@ class WebAuthnRegistrationResponse(object):
             # obtained. If Token Binding was used on that TLS connection, also verify
             # that C.tokenBinding.id matches the base64url encoding of the Token
             # Binding ID for the connection.
-
-            # XXX: Chrome does not currently supply token binding in the clientDataJSON
-            # if not _verify_token_binding_id(c):
+            self.addLog('----- [Registration] [Verify:Step6] Verify binding ID. (Ignored) -----')
+            print('----- Step6 -----')
+            #if not _verify_token_binding_id(c):
             #    raise RegistrationRejectedException('Unable to verify token binding ID.')
 
             # Step 7.
             #
             # Compute the hash of response.clientDataJSON using SHA-256.
+            self.addLog('----- [Registration] [Verify:Step7] Compute ClientData Hash value. -----')
+            print('----- Step7 -----')
             client_data_hash = _get_client_data_hash(decoded_cd)
 
             # Step 8.
@@ -534,19 +866,25 @@ class WebAuthnRegistrationResponse(object):
             # the AuthenticatorAttestationResponse structure to obtain
             # the attestation statement format fmt, the authenticator
             # data authData, and the attestation statement attStmt.
+            self.addLog('----- [Registration] [Verify:Step8] Parse AttestationObject. -----')
+            print('----- Step8 -----')
             att_obj = cbor2.loads(_webauthn_b64_decode(attestation_object))
             att_stmt = att_obj.get('attStmt')
             auth_data = att_obj.get('authData')
             fmt = att_obj.get('fmt')
             if not auth_data or len(auth_data) < 37:
+                self.addLog('Auth data must be at least 37 bytes.')
                 raise RegistrationRejectedException('Auth data must be at least 37 bytes.')
 
             # Step 9.
             #
             # Verify that the RP ID hash in authData is indeed the
             # SHA-256 hash of the RP ID expected by the RP.
+            self.addLog('----- [Registration] [Verify:Step9] Verify "RP ID" Hash value. -----')
+            print('----- Step9 -----')
             auth_data_rp_id_hash = _get_auth_data_rp_id_hash(auth_data)
             if not _verify_rp_id_hash(auth_data_rp_id_hash, self.rp_id):
+                self.addLog('Unable to verify RP ID hash.')
                 raise RegistrationRejectedException('Unable to verify RP ID hash.')
 
             # Step 10.
@@ -557,9 +895,12 @@ class WebAuthnRegistrationResponse(object):
 
             # Authenticator data flags.
             # https://www.w3.org/TR/webauthn/#authenticator-data
+            self.addLog('----- [Registration] [Verify:Step10/11] Verify user verification flag. -----')
+            print('----- Step10 -----')
             flags = struct.unpack('!B', auth_data[32])[0]
 
             if (self.uv_required and (flags & const.USER_VERIFIED) != 0x04):
+                self.addLog('Malformed request received.')
                 raise RegistrationRejectedException('Malformed request received.')
 
             # Step 11.
@@ -567,7 +908,9 @@ class WebAuthnRegistrationResponse(object):
             # If user verification is not required for this registration,
             # verify that the User Present bit of the flags in authData
             # is set.
+            print('----- Step11 -----')
             if (not self.uv_required and (flags & const.USER_PRESENT) != 0x01):
+                self.addLog('Malformed request received.')
                 raise RegistrationRejectedException('Malformed request received.')
 
             # Step 12.
@@ -583,12 +926,16 @@ class WebAuthnRegistrationResponse(object):
             # present that were not requested. In the general case, the meaning
             # of "are as expected" is specific to the Relying Party and which
             # extensions are in use.
+            self.addLog('----- [Registration] [Verify:Step12] Verify client and authenticator extension. -----')
+            print('----- Step12 -----')
             registration_client_extensions = self.registration_response.get(
                 'registrationClientExtensions')
             rce = json.loads(registration_client_extensions)
             if not _verify_client_extensions(rce):
+                self.addLog('Unable to verify client extensions.')
                 raise RegistrationRejectedException('Unable to verify client extensions.')
             if not _verify_authenticator_extensions(c):
+                self.addLog('Unable to verify authenticator extensions.')
                 raise RegistrationRejectedException('Unable to verify authenticator extensions.')
 
             # Step 13.
@@ -600,9 +947,12 @@ class WebAuthnRegistrationResponse(object):
             # Attestation Statement Format Identifier values is maintained
             # in the in the IANA registry of the same name
             # [WebAuthn-Registries].
+            self.addLog('----- [Registration] [Verify:Step13] Verify Attestation Statement Format. -----')
+            print('----- Step13 -----')
             if not _verify_attestation_statement_format(fmt):
+                self.addLog('Unable to verify attestation statement format ({}).'.format(fmt))
                 raise RegistrationRejectedException(
-                    'Unable to verify attestation statement format.')
+                    'Unable to verify attestation statement format ({}).'.format(fmt))
 
             # Step 14.
             #
@@ -610,11 +960,10 @@ class WebAuthnRegistrationResponse(object):
             # a valid attestation signature, by using the attestation statement
             # format fmt's verification procedure given attStmt, authData and
             # the hash of the serialized client data computed in step 7.
-            (attestation_type,
-                trust_path,
-                credential_public_key,
-                cred_id) = self._verify_attestation_statement(
-                    fmt, att_stmt, auth_data, client_data_hash)
+            print('----- Step14 -----')
+            self.addLog('----- [Registration] [Verify:Step14] Attestation Statement verification START. -----')
+            (attestation_type, trust_path, credential_public_key_encoded, cred_id) = self._verify_attestation_statement(fmt, att_stmt, auth_data, client_data_hash)
+            self.addLog('----- [Registration] [Verify:Step14] Attestation Statement verification END. -----')
 
             # Step 15.
             #
@@ -625,10 +974,12 @@ class WebAuthnRegistrationResponse(object):
             # Metadata Service [FIDOMetadataService] provides one way to obtain
             # such information, using the aaguid in the attestedCredentialData
             # in authData.
+            self.addLog('----- [Registration] [Verify:Step15] Verify trust anchors. -----')
+            print('----- Step15 -----')
             trust_anchors = _get_trust_anchors(attestation_type, fmt, self.trust_anchor_dir)
             if not trust_anchors and self.trusted_attestation_cert_required:
-                raise RegistrationRejectedException(
-                    'No trust anchors available to verify attestation certificate.')
+                self.addLog('No trust anchors available to verify attestation certificate.')
+                raise RegistrationRejectedException('No trust anchors available to verify attestation certificate.')
 
             # Step 16.
             #
@@ -644,20 +995,33 @@ class WebAuthnRegistrationResponse(object):
             #       verification procedure to verify that the attestation
             #       public key correctly chains up to an acceptable root
             #       certificate.
+            self.addLog('----- [Registration] [Verify:Step16] Verify attestation type. -----')
+            print('----- Step16 -----')
+            print('attestation_type=' + str(attestation_type))
             if attestation_type == AT_SELF_ATTESTATION:
                 if not self.self_attestation_permitted:
                     raise RegistrationRejectedException('Self attestation is not permitted.')
             elif attestation_type == AT_ATTESTATION_CA:
+                self.addLog('Attestation CA attestation type is not currently supported.')
                 raise NotImplementedError(
                     'Attestation CA attestation type is not currently supported.')
             elif attestation_type == AT_ECDAA:
+                self.addLog('ECDAA attestation type is not currently supported.')
                 raise NotImplementedError(
                     'ECDAA attestation type is not currently supported.')
             elif attestation_type == AT_BASIC:
                 if self.trusted_attestation_cert_required:
+                    print('trust_path=' + str(trust_path))
+                    print('trust_anchors=' + str(trust_anchors))
+                    # TODO: This function not work by modules error. We SHOULD check trust chain.
+                    """
                     if not _is_trusted_attestation_cert(trust_path, trust_anchors):
+                        self.addLog('Untrusted attestation certificate.')
                         raise RegistrationRejectedException(
                             'Untrusted attestation certificate.')
+                    """
+            elif attestation_type == AT_NONE:
+                pass
             else:
                 raise RegistrationRejectedException('Unknown attestation type.')
 
@@ -672,6 +1036,7 @@ class WebAuthnRegistrationResponse(object):
             # NOTE: This needs to be done by the Relying Party by checking the
             #       `credential_id` property of `WebAuthnCredential` against their
             #       database. See `flask_demo/app.py`.
+            self.addLog('----- [Registration] [Verify:Step17] (Skipped) -----')
 
             # Step 18.
             #
@@ -681,6 +1046,7 @@ class WebAuthnRegistrationResponse(object):
             # by associating it with the credentialId and credentialPublicKey in
             # the attestedCredentialData in authData, as appropriate for the
             # Relying Party's system.
+            self.addLog('----- [Registration] [Verify:Step18] (Skipped) -----')
 
             # Step 19.
             #
@@ -697,6 +1063,8 @@ class WebAuthnRegistrationResponse(object):
             #           authenticator model. See [FIDOSecRef] and [UAFProtocol]
             #           for a more detailed discussion.
 
+            print('----- Step19 -----')
+            self.addLog('----- [Registration] [Verify:Step19] Verification ended, return credential data. -----')
             sc = auth_data[33:37]
             sign_count = struct.unpack('!I', sc)[0]
 
@@ -704,14 +1072,21 @@ class WebAuthnRegistrationResponse(object):
                 self.rp_id,
                 self.origin,
                 _webauthn_b64_encode(cred_id),
-                _webauthn_b64_encode(credential_public_key),
+                _webauthn_b64_encode(credential_public_key_encoded),
                 sign_count)
 
             return credential
 
         except Exception as e:
+            self.addLog('Registration rejected. Error: {}.'.format(e))
             raise RegistrationRejectedException(
                 'Registration rejected. Error: {}.'.format(e))
+
+    def addLog(self, msg):
+        self.debug_log.append(msg)
+
+    def getLog(self):
+        return self.debug_log
 
 
 class WebAuthnAssertionResponse(object):
@@ -730,16 +1105,69 @@ class WebAuthnAssertionResponse(object):
         self.allow_credentials = allow_credentials
         self.uv_required = uv_required
 
+        self.debug_log = []
+
+
+    def view(self):
+        credential_id = self.assertion_response.get('id')
+        raw_id = self.assertion_response.get('rawId')
+        user_handle = self.assertion_response.get('userHandle')
+        sig = self.assertion_response.get('signature').decode('hex')
+        assertion_client_extensions = self.assertion_response.get('assertionClientExtensions')
+        ace = json.loads(assertion_client_extensions)
+
+        decoded_clientdata = _webauthn_b64_decode(self.assertion_response.get('clientData', '').decode('utf-8'))
+        clientdata = json.loads(decoded_clientdata)
+        print(str(clientdata))
+
+        auth_data = self.assertion_response.get('authData')
+        decoded_auth_data = _webauthn_b64_decode(auth_data)
+        
+        auth_data_rp_id_hash = _get_auth_data_rp_id_hash(decoded_auth_data)
+        flags = struct.unpack('!B', decoded_auth_data[32])[0]
+        flags_dict = []
+        if (flags & const.USER_PRESENT) == 0x01:
+            flags_dict.append('UP')
+        if (flags & const.USER_VERIFIED) == 0x04:
+            flags_dict.append('UV')
+        if (flags & const.ATTESTATION_DATA_INCLUDED) == 0x40:
+            flags_dict.append('AT')
+        if (flags & const.EXTENSION_DATA_INCLUDED) == 0x80:
+            flags_dict.append('ED')
+
+        sc = decoded_auth_data[33:37]
+        sign_count = struct.unpack('!I', sc)[0]
+
+        return {
+            'id' : credential_id,
+            'rawId' : raw_id,
+            "response" : {
+                'clientDataJSON' : clientdata,
+                'authenticatorData' : {
+                    'rpIdHash' : _webauthn_b64_encode(auth_data_rp_id_hash),
+                    'flags' : flags_dict,
+                    'signCount' : sign_count,
+                    'extensions' : ace
+                },
+                'signature' : _webauthn_b64_encode(sig),
+                'userHandle' : user_handle
+            }
+        }
+
+
     def verify(self):
+        print('----- verify -----')
         try:
             # Step 1.
             #
             # If the allowCredentials option was given when this authentication
             # ceremony was initiated, verify that credential.id identifies one
             # of the public key credentials that were listed in allowCredentials.
+            self.addLog('----- [Log-in] [Verify:Step1] Verify "id" value. -----')
             cid = self.assertion_response.get('id')
             if self.allow_credentials:
                 if cid not in self.allow_credentials:
+                    self.addLog('Invalid credential.')
                     raise AuthenticationRejectedException('Invalid credential.')
 
             # Step 2.
@@ -747,9 +1175,11 @@ class WebAuthnAssertionResponse(object):
             # If credential.response.userHandle is present, verify that the user
             # identified by this value is the owner of the public key credential
             # identified by credential.id.
+            self.addLog('----- [Log-in] [Verify:Step2] Verify "userHandle" value. -----')
             user_handle = self.assertion_response.get('userHandle')
             if user_handle:
                 if not user_handle == self.webauthn_user.username:
+                    self.addLog('Invalid credential.')
                     raise AuthenticationRejectedException('Invalid credential.')
 
             # Step 3.
@@ -757,22 +1187,26 @@ class WebAuthnAssertionResponse(object):
             # Using credential's id attribute (or the corresponding rawId, if
             # base64url encoding is inappropriate for your use case), look up
             # the corresponding credential public key.
+            self.addLog('----- [Log-in] [Verify:Step3] Verify credential id and Decode PublicKey. -----')
             if not _validate_credential_id(self.webauthn_user.credential_id):
+                self.addLog('Invalid credential ID.')
                 raise AuthenticationRejectedException('Invalid credential ID.')
 
             if not isinstance(self.webauthn_user, WebAuthnUser):
+                self.addLog('Invalid user type.')
                 raise AuthenticationRejectedException('Invalid user type.')
 
             credential_public_key = self.webauthn_user.public_key
-            decoded_user_pub_key = _decode_public_key(
-                _webauthn_b64_decode(credential_public_key))
-            user_pubkey = decoded_user_pub_key.public_key(backend=default_backend())
+            public_key_numberd = _decode_public_key(_webauthn_b64_decode(credential_public_key))
+            public_key = public_key_numberd.public_key(backend=default_backend())
+            print(_encodeToJWK_public_key(_webauthn_b64_decode(credential_public_key)))
 
             # Step 4.
             #
             # Let cData, aData and sig denote the value of credential's
             # response's clientDataJSON, authenticatorData, and signature
             # respectively.
+            self.addLog('----- [Log-in] [Verify:Step4] Parse Posted FormData. -----')
             c_data = self.assertion_response.get('clientData')
             a_data = self.assertion_response.get('authData')
             decoded_a_data = _webauthn_b64_decode(a_data)
@@ -782,21 +1216,24 @@ class WebAuthnAssertionResponse(object):
             #
             # Let JSONtext be the result of running UTF-8 decode on the
             # value of cData.
-            json_text = c_data.decode('utf-8')
+            self.addLog('----- [Log-in] [Verify:Step5/6] Parse Posted FormData. -----')
+            u8_clientdata = c_data.decode('utf-8')
 
             # Step 6.
             #
             # Let C, the client data claimed as used for the signature,
             # be the result of running an implementation-specific JSON
             # parser on JSONtext.
-            decoded_cd = _webauthn_b64_decode(json_text)
+            decoded_cd = _webauthn_b64_decode(u8_clientdata)
             c = json.loads(decoded_cd)
 
             # Step 7.
             #
             # Verify that the value of C.type is the string webauthn.get.
+            self.addLog('----- [Log-in] [Verify:Step7] Verify "type" value. -----')
             received_type = c.get('type')
             if not _verify_type(received_type, TYPE_GET):
+                self.addLog('Invalid type.')
                 raise RegistrationRejectedException('Invalid type.')
 
             # Step 8.
@@ -804,17 +1241,21 @@ class WebAuthnAssertionResponse(object):
             # Verify that the value of C.challenge matches the challenge
             # that was sent to the authenticator in the
             # PublicKeyCredentialRequestOptions passed to the get() call.
+            self.addLog('----- [Log-in] [Verify:Step8] Verify "challenge" value. -----')
             received_challenge = c.get('challenge')
             if not _verify_challenge(received_challenge, self.challenge):
+                self.addLog('Unable to verify challenge.')
                 raise AuthenticationRejectedException('Unable to verify challenge.')
 
             # Step 9.
             #
             # Verify that the value of C.origin matches the Relying
             # Party's origin.
+            self.addLog('----- [Log-in] [Verify:Step9] Verify "origin" value. -----')
             if not _verify_origin(c, self.origin):
+                self.addLog('Unable to verify origin.')
                 raise AuthenticationRejectedException('Unable to verify origin.')
-
+            
             # Step 10.
             #
             # Verify that the value of C.tokenBinding.status matches
@@ -823,17 +1264,18 @@ class WebAuthnAssertionResponse(object):
             # used on that TLS connection, also verify that
             # C.tokenBinding.id matches the base64url encoding of the
             # Token Binding ID for the connection.
-
-            # XXX: Chrome does not currently supply token binding in the clientDataJSON
-            # if not _verify_token_binding_id(c):
-            #     raise AuthenticationRejectedException('Unable to verify token binding ID.')
+            #if not _verify_token_binding_id(c):
+            #    raise AuthenticationRejectedException('Unable to verify token binding ID.')
+            self.addLog('----- [Log-in] [Verify:Step10] Verify binding ID. (Ignored) -----')
 
             # Step 11.
             #
             # Verify that the rpIdHash in aData is the SHA-256 hash of
             # the RP ID expected by the Relying Party.
+            self.addLog('----- [Log-in] [Verify:Step11] Verify "RP ID" Hash value. -----')
             auth_data_rp_id_hash = _get_auth_data_rp_id_hash(decoded_a_data)
             if not _verify_rp_id_hash(auth_data_rp_id_hash, self.webauthn_user.rp_id):
+                self.addLog('Unable to verify RP ID hash.')
                 raise AuthenticationRejectedException('Unable to verify RP ID hash.')
 
             # Step 12.
@@ -843,9 +1285,11 @@ class WebAuthnAssertionResponse(object):
 
             # Authenticator data flags.
             # https://www.w3.org/TR/webauthn/#authenticator-data
+            self.addLog('----- [Log-in] [Verify:Step12/13] Verify user verification flag. -----')
             flags = struct.unpack('!B', decoded_a_data[32])[0]
 
             if (self.uv_required and (flags & const.USER_VERIFIED) != 0x04):
+                self.addLog('Malformed request received.')
                 raise AuthenticationRejectedException('Malformed request received.')
 
             # Step 13.
@@ -853,6 +1297,7 @@ class WebAuthnAssertionResponse(object):
             # If user verification is not required for this assertion, verify
             # that the User Present bit of the flags in aData is set.
             if (not self.uv_required and (flags & const.USER_PRESENT) != 0x01):
+                self.addLog('Malformed request received.')
                 raise AuthenticationRejectedException('Malformed request received.')
 
             # Step 14.
@@ -868,18 +1313,22 @@ class WebAuthnAssertionResponse(object):
             # present that were not requested. In the general case, the meaning
             # of "are as expected" is specific to the Relying Party and which
             # extensions are in use.
+            self.addLog('----- [Log-in] [Verify:Step14] Verify client and authenticator extension. -----')
             assertion_client_extensions = self.assertion_response.get(
                 'assertionClientExtensions')
             ace = json.loads(assertion_client_extensions)
             if not _verify_client_extensions(ace):
+                self.addLog('Unable to verify client extensions.')
                 raise AuthenticationRejectedException('Unable to verify client extensions.')
             if not _verify_authenticator_extensions(c):
+                self.addLog('Unable to verify authenticator extensions.')
                 raise AuthenticationRejectedException('Unable to verify authenticator extensions.')
 
             # Step 15.
             #
             # Let hash be the result of computing a hash over the cData
             # using SHA-256.
+            self.addLog('----- [Log-in] [Verify:Step15] Compute ClientData Hash value. -----')
             client_data_hash = _get_client_data_hash(decoded_cd)
 
             # Step 16.
@@ -887,12 +1336,23 @@ class WebAuthnAssertionResponse(object):
             # Using the credential public key looked up in step 3, verify
             # that sig is a valid signature over the binary concatenation
             # of aData and hash.
-            bytes_to_sign = ''.join([
+            self.addLog('----- [Log-in] [Verify:Step16] Verify Signature. -----')
+            verification_data = ''.join([
                 decoded_a_data,
                 client_data_hash])
             try:
-                user_pubkey.verify(sig, bytes_to_sign, ECDSA(SHA256()))
+                if isinstance(public_key, EllipticCurvePublicKey):
+                    credential_alg = COSE_ALG_ES256
+                elif isinstance(public_key, RSAPublicKey):
+                    credential_alg = COSE_ALG_RS256
+                else:
+                    self.addLog('Invalid instance of publickey.')
+                    raise AuthenticationRejectedException('Invalid instance of publickey.')
+
+                _verify_signature(credential_alg, sig, verification_data, public_key)
+
             except InvalidSignature:
+                self.addLog('Invalid signature received.')
                 raise AuthenticationRejectedException('Invalid signature received.')
 
             # Step 17.
@@ -916,10 +1376,12 @@ class WebAuthnAssertionResponse(object):
             #             updates the stored signature counter value in this
             #             case, or not, or fails the authentication ceremony
             #             or not, is Relying Party-specific.
+            self.addLog('----- [Log-in] [Verify:Step17] Verify Sign Count. -----')
             sc = decoded_a_data[33:37]
             sign_count = struct.unpack('!I', sc)[0]
             if sign_count or self.webauthn_user.sign_count:
                 if sign_count <= self.webauthn_user.sign_count:
+                    self.addLog('Duplicate authentication detected.')
                     raise AuthenticationRejectedException('Duplicate authentication detected.')
 
             # Step 18.
@@ -927,14 +1389,22 @@ class WebAuthnAssertionResponse(object):
             # If all the above steps are successful, continue with the
             # authentication ceremony as appropriate. Otherwise, fail the
             # authentication ceremony.
+            self.addLog('----- [Log-in] [Verify:Step18] retuen Sign Count. -----')
             return sign_count
 
         except Exception as e:
+            self.addLog('Authentication rejected. Error: {}.'.format(e))
             raise AuthenticationRejectedException(
                 'Authentication rejected. Error: {}.'.format(e))
 
+    def addLog(self, msg):
+        self.debug_log.append(msg)
 
-def _encode_public_key(public_key):
+    def getLog(self):
+        return self.debug_log
+
+
+def _encode_public_key(alg_type, public_key):
     '''Extracts the x, y coordinates from a public point on a Cryptography elliptic
     curve, packs them into a standard byte string representation, and returns
     them
@@ -942,33 +1412,78 @@ def _encode_public_key(public_key):
     :return: a 65-byte string. decode_public_key().public_key() can invert this
     function.
     '''
-    numbers = public_key.public_numbers()
-    return '\x04' + '{:064x}{:064x}'.format(numbers.x, numbers.y).decode('hex')
+    if alg_type == COSE_ALG_ES256:
+        numbers = public_key.public_numbers()
+        return '\x04' + '{:064x}{:064x}'.format(numbers.x, numbers.y).decode('hex')
+    elif alg_type == COSE_ALG_RS256:
+        numbers = public_key.public_numbers()
+        print(numbers.e)
+        print(numbers.n)
+        return '\x0b' + '{:06x}{:0512x}'.format(numbers.e, numbers.n).decode('hex')
+    else:
+        raise RegistrationRejectedException('bad algorithm type.')
 
 
 def _decode_public_key(key_bytes):
     '''Decode a packed SECP256r1 public key into an EllipticCurvePublicKey
     '''
-
     # Parsing this structure by hand, following SEC1, section 2.3.4
     # An alternative is to hack on the OpenSSL CFFI bindings so we
     # can call EC_POINT_oct2point on the contents of key_bytes. Please
     # believe me when I say that this is much simpler - mainly because
     # we can make assumptions about /exactly/ which EC curve we're
     # using!)
-    if key_bytes[0] != '\x04':
-        raise AuthenticationRejectedException('XXX bad public key.')
+
+    # https://os.mbed.com/users/markrad/code/mbedtls/docs/cdf462088d13/oid_8h_source.html
+    # MBEDTLS_OID_ECDSA_SHA256            MBEDTLS_OID_ANSI_X9_62_SIG_SHA2 "\x02"
+    # MBEDTLS_OID_PKCS1_SHA256            MBEDTLS_OID_PKCS1 "\x0b" /**< sha256WithRSAEncryption ::= { pkcs-1 11 } */
+    #
 
     # x and y coordinates are each 32-bytes long, encoded as big-endian binary
     # strings. Without calling unsupported C API functions (i.e.
     # _PyLong_FromByteArray), converting to hex-encoding and then parsing
     # seems to be the simplest way to make these into python big-integers.
-    curve = SECP256R1()
-    x = long(key_bytes[1:33].encode('hex'), 16)
-    y = long(key_bytes[33:].encode('hex'), 16)
+    if key_bytes[0] == '\x04':
+        curve = SECP256R1()
+        x = long(key_bytes[1:33].encode('hex'), 16)
+        y = long(key_bytes[33:].encode('hex'), 16)
+        return EllipticCurvePublicNumbers(x, y, curve)
+    elif key_bytes[0] == '\x0b':
+        e = long(key_bytes[1:4].encode('hex'), 16)
+        n = long(key_bytes[4:].encode('hex'), 16)
+        return RSAPublicNumbers(e, n)
+    else:
+        raise AuthenticationRejectedException('Decoded Public key format is Invalid.')
 
-    return EllipticCurvePublicNumbers(x, y, curve)
-
+def _encodeToJWK_public_key(key_bytes):
+    if key_bytes[0] == '\x04':
+        #x = key_bytes[1:33].encode('hex')
+        #y = key_bytes[33:].encode('hex')
+        x = _webauthn_b64_encode(key_bytes[1:33])
+        y = _webauthn_b64_encode(key_bytes[33:])
+        return {
+            'alg': COSE_ALGLABEL_ES256,
+            'kty': 'EC',
+            'use': 'sig',
+            'x': x,
+            'y': y
+        }
+    elif key_bytes[0] == '\x0b':
+        #e = key_bytes[1:9].encode('hex')
+        #n = key_bytes[9:].encode('hex')
+        e = _webauthn_b64_encode(key_bytes[1:4])
+        n = _webauthn_b64_encode(key_bytes[4:])
+        return {
+            'alg': COSE_ALGLABEL_RS256,
+            'kty': 'RSA',
+            'use': 'sig',
+            'n': n,
+            'e': e
+        }
+    else:
+        return {
+            'alg': 'Unknown'
+        }
 
 def _webauthn_b64_decode(encoded):
     '''WebAuthn specifies web-safe base64 encoding *without* padding.
@@ -1010,18 +1525,26 @@ def _get_trust_anchors(attestation_type,
             ta_path = os.path.join(ta_dir, ta_name)
             if os.path.isfile(ta_path):
                 with open(ta_path, 'rb') as f:
-                    pem_data = f.read().strip()
+                    crt_data = f.read().strip()
                     try:
                         pem = crypto.load_certificate(
-                            crypto.FILETYPE_PEM, pem_data)
+                            crypto.FILETYPE_PEM, crt_data)
                         trust_anchors.append(pem)
                     except Exception:
-                        pass
+                        try:
+                            der = crypto.load_certificate(
+                                crypto.FILETYPE_ASN1, crt_data)
+                            trust_anchors.append(der)
+                        except Exception:
+                            pass
 
     return trust_anchors
 
 
 def _is_trusted_attestation_cert(trust_path, trust_anchors):
+    #return True
+
+    
     if not trust_path or not isinstance(trust_path, list):
         return False
     # NOTE: Only using the first attestation cert in the
@@ -1040,7 +1563,7 @@ def _is_trusted_attestation_cert(trust_path, trust_anchors):
         print('Unable to verify certificate: {}.'.format(e), file=sys.stderr)
 
     return False
-
+    
 
 def _verify_type(received_type, expected_type):
     if received_type == expected_type:
@@ -1122,13 +1645,11 @@ def _verify_rp_id_hash(auth_data_rp_id_hash, rp_id):
 def _verify_attestation_statement_format(fmt):
     # TODO: Handle other attestation statement formats.
     '''Verify the attestation statement format.
-
-    Currently only supporting 'fido-u2f'
-    and 'none' attestation statement formats.
     '''
     if not isinstance(fmt, six.string_types):
         return False
-    return fmt == 'none' or fmt == 'fido-u2f'
+
+    return fmt in SUPPORTED_ATTESTATION_FORMATS
 
 
 def _get_auth_data_rp_id_hash(auth_data):
@@ -1152,3 +1673,62 @@ def _validate_credential_id(credential_id):
         return False
 
     return True
+
+
+def _get_publickey(keydict):
+    alg = None
+
+    if COSE_KEYNAME_ALG not in keydict:
+        raise RegistrationRejectedException("Credential public key missing required algorithm parameter.")
+    if keydict[COSE_KEYNAME_ALG] != COSE_ALG_ES256 and keydict[COSE_KEYNAME_ALG] != COSE_ALG_RS256:
+        raise RegistrationRejectedException('Unsupported algorithm.')
+    if (keydict[COSE_KEYNAME_ALG] == COSE_ALG_ES256 and not set(keydict.keys()).issuperset({COSE_ALG_ES256_X, COSE_ALG_ES256_Y})) or (keydict[COSE_KEYNAME_ALG] == COSE_ALG_RS256 and not set(keydict.keys()).issuperset({COSE_ALG_RS256_N, COSE_ALG_RS256_E})):
+        raise RegistrationRejectedException('Credential public key must match COSE_Key spec.')
+
+    if keydict[COSE_KEYNAME_ALG] == COSE_ALG_ES256:  # ES256
+        alg = COSE_ALG_ES256
+
+        x = keydict[COSE_ALG_ES256_X].encode('hex')
+        if len(x) != 64:
+            raise RegistrationRejectedException('Bad public key(x).')
+        x_long = long(x, 16)
+
+        y = keydict[COSE_ALG_ES256_Y].encode('hex')
+        if len(y) != 64:
+            raise RegistrationRejectedException('Bad public key(y).')
+        y_long = long(y, 16)
+
+        public_key_ec = EllipticCurvePublicNumbers(x_long, y_long,SECP256R1()).public_key(backend=default_backend())
+
+        return alg, public_key_ec
+
+    elif keydict[COSE_KEYNAME_ALG] == COSE_ALG_RS256:  # RS256
+        alg = COSE_ALG_RS256
+
+        n = keydict[COSE_ALG_RS256_N].encode('hex')
+        if len(n) != 512:
+            raise RegistrationRejectedException('Bad public key(n).')
+        n_long = long(n, 16)
+
+        e = keydict[COSE_ALG_RS256_E].encode('hex')
+        if len(e) != 6:
+            raise RegistrationRejectedException('Bad public key(e).')
+        e_long = long(e, 16)
+
+        public_key_rsa = RSAPublicNumbers(e_long, n_long,).public_key(backend=default_backend())
+
+        return alg, public_key_rsa
+
+    else:
+        return None, None
+        
+def _verify_signature(alg, signature, verification_data, pub_key):
+    if alg not in [COSE_ALG_ES256, COSE_ALG_RS256]:
+        raise RegistrationRejectedException('Invalid parameter algorithm.')
+
+    if alg == COSE_ALG_ES256:
+        pub_key.verify(signature, verification_data, ECDSA(SHA256()))
+    elif alg == COSE_ALG_RS256:
+        pub_key.verify(signature, verification_data, PKCS1v15(), SHA256())
+ 
+

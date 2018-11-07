@@ -32,7 +32,7 @@ def validate_display_name(display_name):
 def generate_challenge(challenge_len):
     return ''.join([
         random.SystemRandom().choice(
-            string.letters + string.digits) for i in range(challenge_len)])
+            string.ascii_letters + string.digits) for i in range(challenge_len)])
 
 
 def generate_ukey():
@@ -48,3 +48,6 @@ def generate_ukey():
     arbitrary string specified by the relying party.
     '''
     return generate_challenge(20)
+
+def random_username(n):
+    return generate_challenge(n)
