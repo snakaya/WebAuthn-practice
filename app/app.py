@@ -34,13 +34,11 @@ db.init_app(app)
 login_manager = LoginManager()
 login_manager.init_app(app)
 
-# NOTE: 
-#RP_ID = 'www.example.com'
-#ORIGIN = 'https://www.example.com'
-#RP_ID = 'webauthn.loosedays.jp'
-#ORIGIN = 'https://webauthn.loosedays.jp'
-RP_ID = 'webauthn-dev.loosedays.jp'
-ORIGIN = 'https://webauthn-dev.loosedays.jp'
+#
+# NOTE: PLEASE CHAGE TO YOUR RP_ID AND ORIGIN URL. THE URL MUST BE HTTPS SCHEMA.
+#
+RP_ID = 'www.example.com'
+ORIGIN = 'https://www.example.com'
 
 # Trust anchors (trusted attestation roots) should be
 # placed in TRUST_ANCHOR_DIR.
@@ -413,5 +411,4 @@ def logout():
 
 
 if __name__ == '__main__':
-    #app.run(host='127.0.0.1', port=5000, debug=True)
-    app.run(host='127.0.0.1', port=28090, debug=True)
+    app.run(host='127.0.0.1', port=5000, debug=True)
