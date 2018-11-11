@@ -18,7 +18,7 @@
             <span class="navbar-toggler-icon"></span>
         </button>
         <div class="collapse navbar-collapse" id="navbarNav">
-            <ul class="navbar-nav">
+            <ul class="navbar-nav mr-auto">
                 <li class="nav-item">
                     <a class="nav-link active" href="#" id="rlLink">Register&amp;Log-in</a>
                 </li>
@@ -32,6 +32,7 @@
                     <a class="nav-link" href="#" id="osLink">Option Setting</a>
                 </li>
             </ul>
+            <span class="navbar-text">v{{ app_version }}</span>
         </div>
     </nav>
     <div id="mainContainer">
@@ -247,8 +248,9 @@
                 <div class="tab-content" id="opTabContent">
                     <div class="tab-pane fade show active" id="attestationTabPanel" role="tabpanel" aria-labelledby="attestationTab">
                         <div class="form-group">
-                            <label for="attestationTypeSelect">Attestation Type</label>
+                            <label for="attestationTypeSelect">Attestation Conveyance Preference</label>
                             <select class="form-control custom-select bg-light" id="attestationTypeSelect" readonly="true">
+                                <option value="">(not set)</option>
                                 <option value="direct">direct</option>
                                 <option value="indirect">indirect</option>
                                 <option value="none">none</option>
@@ -257,6 +259,7 @@
                         <div class="form-group">
                             <label for="userVerificationSelect">User Verification</label>
                             <select class="form-control custom-select bg-light" id="userVerificationSelect" readonly="true">
+                                <option value="">(not set)</option>
                                 <option value="required">required</option>
                                 <option value="preferred">preferred</option>
                                 <option value="discouraged">discouraged</option>
@@ -265,6 +268,7 @@
                         <div class="form-group">
                             <label for="requireResidentKeySelect">Require ResidentKey</label>
                             <select class="form-control custom-select bg-light" id="requireResidentKeySelect" readonly="true">
+                                <option value="">(not set)</option>
                                 <option value="true">true</option>
                                 <option value="false">false</option>
                             </select>
@@ -272,6 +276,7 @@
                         <div class="form-group">
                             <label for="authenticatorAttachmentSelect">Authenticator Attachment</label>
                             <select class="form-control custom-select bg-light" id="authenticatorAttachmentSelect" readonly="true">
+                                <option value="">(not set)</option>
                                 <option value="platform">platform</option>
                                 <option value="cross-platform">cross-platform</option>
                             </select>
@@ -313,8 +318,8 @@
                             <small id="excludeTransportsHelp" class="col-12 col-md-12 form-text text-muted">Multi values must be separated by space.</small>
                         </div>
                         <div class="form-group">
-                            <label for="attestationExtentionsTextArea">Option Parameters on Attestation</label>
-                            <textarea class="form-control" id="attestationExtentionsTextArea" rows="5"></textarea>
+                            <label for="attestationExtensionsTextArea">Option Parameters on Attestation</label>
+                            <textarea class="form-control" id="attestationExtensionsTextArea" rows="5"></textarea>
                             <small id="attestationExtentionsTextAreaHelp" class="form-text text-muted">Format is "Name=Value". Each option is per row.</small>
                         </div>
                     </div>
@@ -338,9 +343,9 @@
                             <small id="acceptableTransportsHelp" class="col-12 col-md-12 form-text text-muted">Multi values must be separated by space.</small>
                         </div>
                         <div class="form-group">
-                            <label for="assertionExtentionsTextArea">Option Parameters on Assertion</label>
-                            <textarea class="form-control" id="assertionExtentionsTextArea" rows="5"></textarea>
-                            <small id="assertionExtentionsTextAreaHelp" class="form-text text-muted">Format is "Name=Value". Each option is per row.</small>
+                            <label for="assertionExtensionsTextArea">Option Parameters on Assertion</label>
+                            <textarea class="form-control" id="assertionExtensionsTextArea" rows="5"></textarea>
+                            <small id="assertionExtensionsTextAreaHelp" class="form-text text-muted">Format is "Name=Value". Each option is per row.</small>
                         </div>
                     </div>
                 </div>
@@ -352,7 +357,7 @@
 
     <footer class="footer clearfix bg-dark mt-4">
         <div class="footer-container text-right text-muted">
-            <p class="m-0 p-0">Forked from <a href="https://github.com/duo-labs/py_webauthn">duo-labs/py_webauthn</a>.</p>
+            <p class="m-0 p-0"><a class="github-button" href="https://github.com/snakaya/WebAuthn-practice/" data-size="large" aria-label="View snakaya/WebAuthn-practice on GitHub">View the Source</a></p>
             <p class="m-0 p-0">(C)2018 LOOSEDAYS</p>
         </div>
     </footer>
@@ -363,6 +368,7 @@
 	<script src="https://cdn.jsdelivr.net/npm/js-cookie@2/src/js.cookie.min.js"></script>
 	<script src="https://cdn.jsdelivr.net/npm/gasparesganga-jquery-loading-overlay@2.1.5/dist/loadingoverlay.min.js"></script>
     <script src="{{ url_for('static', filename='js/lib/base64.js') }}"></script>
+    <script async defer src="https://buttons.github.io/buttons.js"></script>
     <script type="text/javascript">
     function b64enc(buf) {
         return base64js.fromByteArray(buf)
@@ -406,11 +412,9 @@
             if(response.success) {
                 $('#infomsg').text(response.success);
                 $('#infoalert').removeClass('d-none');
-            } else if(response.responseJSON) {
-                if(response.responseJSON.fail) {
-                    $('#errmsg').text(e.responseJSON.fail);
-                    $('#erralert').removeClass('d-none');
-                }
+            } else if(response.fail) {
+                $('#errmsg').text(response.fail);
+                $('#erralert').removeClass('d-none');
             }
             if(response.debug_log) {
                 addLog(response.debug_log);
@@ -445,11 +449,9 @@
             if(response.success) {
                 $('#infomsg').text(response.success);
                 $('#infoalert').removeClass('d-none');
-            } else if(response.responseJSON) {
-                if(response.responseJSON.fail) {
-                    $('#errmsg').text(e.responseJSON.fail);
-                    $('#erralert').removeClass('d-none');
-                }
+            } else if(response.fail) {
+                $('#errmsg').text(response.fail);
+                $('#erralert').removeClass('d-none');
             }
             if(response.debug_log) {
                 addLog(response.debug_log);
@@ -591,11 +593,9 @@
                     }
                 }
                 // Turn the challenge back into the accepted format
-                makeCredentialOptions.challenge = Uint8Array.from(
-                    atob(makeCredentialOptions.challenge), c => c.charCodeAt(0));
+                makeCredentialOptions.challenge = Uint8Array.from(atob(makeCredentialOptions.challenge), c => c.charCodeAt(0));
                 // Turn the user ID back into the accepted format
-                makeCredentialOptions.user.id = Uint8Array.from(
-                    atob(makeCredentialOptions.user.id), c => c.charCodeAt(0));
+                makeCredentialOptions.user.id = Uint8Array.from(atob(makeCredentialOptions.user.id), c => c.charCodeAt(0));
                 try{
                     navigator.credentials.create({ publicKey: makeCredentialOptions })
                         .then(async function(newCredential) {
@@ -674,12 +674,12 @@
                 // Turn the challenge back into the accepted format
                 assertionOptions.challenge = Uint8Array.from(
                     atob(assertionOptions.challenge), c => c.charCodeAt(0));
-                assertionOptions.allowCredentials.forEach(function(listItem) {
-                    var fixedId = listItem.id.replace(
-                        /\_/g, "/").replace(/\-/g, "+");
-                    listItem.id = Uint8Array.from(
-                        atob(fixedId), c => c.charCodeAt(0));
-                });
+                if(assertionOptions.allowCredentials) {
+                    assertionOptions.allowCredentials.forEach(function(listItem) {
+                        var fixedId = listItem.id.replace(/\_/g, "/").replace(/\-/g, "+");
+                        listItem.id = Uint8Array.from(atob(fixedId), c => c.charCodeAt(0));
+                    });
+                }
                 try{
                     navigator.credentials.get({ publicKey: assertionOptions })
                         .then(function(assertedCredential) {
@@ -753,22 +753,17 @@
                     }
                 }
                 // Turn the challenge back into the accepted format
-                makeCredentialOptions.challenge = Uint8Array.from(
-                    atob(makeCredentialOptions.challenge), c => c.charCodeAt(0));
+                makeCredentialOptions.challenge = Uint8Array.from(atob(makeCredentialOptions.challenge), c => c.charCodeAt(0));
                 // Turn the user ID back into the accepted format
-                makeCredentialOptions.user.id = Uint8Array.from(
-                    atob(makeCredentialOptions.user.id), c => c.charCodeAt(0));
+                makeCredentialOptions.user.id = Uint8Array.from(atob(makeCredentialOptions.user.id), c => c.charCodeAt(0));
                 try{
                     navigator.credentials.create({ publicKey: makeCredentialOptions })
                         .then(function(publicKeyCredential) {
                             console.log(publicKeyCredential);
 
-                            let attObj = new Uint8Array(
-                                publicKeyCredential.response.attestationObject);
-                            let clientDataJSON = new Uint8Array(
-                                publicKeyCredential.response.clientDataJSON);
-                            let rawId = new Uint8Array(
-                                publicKeyCredential.rawId);
+                            let attObj = new Uint8Array(publicKeyCredential.response.attestationObject);
+                            let clientDataJSON = new Uint8Array(publicKeyCredential.response.clientDataJSON);
+                            let rawId = new Uint8Array(publicKeyCredential.rawId);
                             let registrationClientExtensions = publicKeyCredential.getClientExtensionResults();
                             $.post('/view/attestation', {
                                 id: publicKeyCredential.id,
@@ -782,11 +777,9 @@
                                 if(response.success) {
                                     $('#infomsg').text(response.success);
                                     $('#infoalert').removeClass('d-none');
-                                } else if(response.responseJSON) {
-                                    if(response.responseJSON.fail) {
-                                        $('#errmsg').text(response.responseJSON.fail);
-                                        $('#erralert').removeClass('d-none');
-                                    }
+                                } else if(response.fail) {
+                                    $('#errmsg').text(response.fail);
+                                    $('#erralert').removeClass('d-none');
                                 }
                                 addViewLog('===== Authenticator Attestation Response (Decoded) =====');
                                 addViewLog(JSON.stringify(response, undefined, 4));
@@ -848,14 +841,13 @@
                     }
                 }
                 // Turn the challenge back into the accepted format
-                assertionOptions.challenge = Uint8Array.from(
-                    atob(assertionOptions.challenge), c => c.charCodeAt(0));
-                assertionOptions.allowCredentials.forEach(function(listItem) {
-                    var fixedId = listItem.id.replace(
-                        /\_/g, "/").replace(/\-/g, "+");
-                    listItem.id = Uint8Array.from(
-                        atob(fixedId), c => c.charCodeAt(0));
-                });
+                assertionOptions.challenge = Uint8Array.from(atob(assertionOptions.challenge), c => c.charCodeAt(0));
+                if(assertionOptions.allowCredentials) {
+                    assertionOptions.allowCredentials.forEach(function(listItem) {
+                        var fixedId = listItem.id.replace(/\_/g, "/").replace(/\-/g, "+");
+                        listItem.id = Uint8Array.from(atob(fixedId), c => c.charCodeAt(0));
+                    });
+                }
                 try{
                     navigator.credentials.get({ publicKey: assertionOptions })
                         .then(function(assertedCredential) {
@@ -880,11 +872,9 @@
                                 if(response.success) {
                                     $('#infomsg').text(response.success);
                                     $('#infoalert').removeClass('d-none');
-                                } else if(response.responseJSON) {
-                                    if(response.responseJSON.fail) {
-                                        $('#errmsg').text(e.responseJSON.fail);
-                                        $('#erralert').removeClass('d-none');
-                                    }
+                                } else if(response.fail) {
+                                    $('#errmsg').text(response.fail);
+                                    $('#erralert').removeClass('d-none');
                                 }
                                 addViewLog('===== Authenticator Assersion Response (Decoded) =====');
                                 addViewLog(JSON.stringify(response, undefined, 4));
@@ -966,8 +956,13 @@
                     url: "/users",
                     dataType: "json"
                 }).done(function( data, textStatus, jqXHR ) {
-                    for(let u of data.users) {
-                        $("#usersTable").append('<tr><td class="text-center"><i class="checkIcon material-icons text-primary" data-userno="' + u.id + '">check_box_outline_blank</i></td><td class="text-center"><a href="#" class="userDetailLink" data-userno="' + u.id + '">' + u.id + '</a></td><td>' + u.username + '</td><td>' + u.display_name + '</td><td>' + u.credential_id + '</td></tr>');
+                    if(data.fail) {
+                        $('#errmsg').text(data.fail);
+                        $('#erralert').removeClass('d-none');
+                    } else {
+                        for(let u of data.users) {
+                            $("#usersTable").append('<tr><td class="text-center"><i class="checkIcon material-icons text-primary" data-userno="' + u.id + '">check_box_outline_blank</i></td><td class="text-center"><a href="#" class="userDetailLink" data-userno="' + u.id + '">' + u.id + '</a></td><td>' + u.username + '</td><td>' + u.display_name + '</td><td>' + u.credential_id + '</td></tr>');
+                        }
                     }
                 }).fail(function( jqXHR, textStatus, errorThrown ) {
                     console.log("Error getting Users.");
@@ -1052,10 +1047,129 @@
             $('#infoalert').addClass('d-none');
             $('#errmsg').text('');
             $('#erralert').addClass('d-none');
+
+            $.LoadingOverlay("show", true);
+            $.ajax({
+                method: "GET",
+                url: "/options",
+                dataType: "json"
+            }).done(function( data, textStatus, jqXHR ) {
+                $('#attestationTypeSelect').val(data.attestation.conveyancePreference);
+                $('#userVerificationSelect').val(data.attestation.authenticatorSelection.userVerification);
+                $('#requireResidentKeySelect').val(data.attestation.authenticatorSelection.requireResidentKey.toString());
+                $('#authenticatorAttachmentSelect').val(data.attestation.authenticatorSelection.authenticatorAttachment);
+                $('#allowTransportsText').val(data.attestation.allowCredentials.transports.join(' '));
+                $('#excludeTransportsText').val(data.attestation.excludeCredentials.transports.join(' '));
+                if(Object.keys(data.attestation.extensions).length > 0) {
+                    var tmparr = new Array();
+                    for(var k in data.attestation.extensions) {
+                        tmparr.push(k + '=' + data.attestation.extensions[k]);
+                    }
+                    $('#attestationExtensionsTextArea').val(tmparr.join('\n'));
+                } else {
+                    $('#attestationExtensionsTextArea').val('');
+                }
+
+                $('#acceptableTransportsText').val(data.assertion.allowCredentials.transports.join(' '));
+                if(Object.keys(data.assertion.extensions).length > 0) {
+                    var tmparr = new Array();
+                    for(var k in data.assertion.extensions) {
+                        tmparr.push(k + '=' + data.assertion.extensions[k]);
+                    }
+                    $('#assertionExtensionsTextArea').val(tmparr.join('\n'));
+                } else {
+                    $('#assertionExtensionsTextArea').val('');
+                }
+                
+            }).fail(function( jqXHR, textStatus, errorThrown ) {
+                console.log("Error getting User.");
+                console.log(e);
+                $('#errmsg').text(jqXHR.status + ' ' + jqXHR.statusText);
+                $('#erralert').removeClass('d-none');
+            }).always(function( ) {
+                $.LoadingOverlay("hide", true);
+            });
         });
 
         $("#clearlogIcon").click(function(e) { clearLog(); });
         $("#clearViewlogIcon").click(function(e) { clearViewLog(); });
+
+        $(".opSettingsModalSaveBtn").click(function(e) {
+            e.preventDefault();
+            var conveyancePreference = $('#attestationTypeSelect').val();
+            var userVerification = $('#userVerificationSelect').val();
+            var requireResidentKey = $('#requireResidentKeySelect').val();
+            var authenticatorAttachment = $('#authenticatorAttachmentSelect').val();
+            var attestationAllowCredentials = $('#allowTransportsText').val();
+            var attestationExcludeCredentials = $('#excludeTransportsText').val();
+            var attestationExtensions = $('#attestationExtensionsTextArea').val();
+            var assertionAllowCredentials = $('#acceptableTransportsText').val();
+            var assertionExtensions = $('#assertionExtensionsTextArea').val();
+
+            $.post("/options", {
+                conveyancePreference: conveyancePreference,
+                userVerification: userVerification,
+                requireResidentKey: requireResidentKey,
+                authenticatorAttachment: authenticatorAttachment,
+                attestationAllowCredentials: attestationAllowCredentials,
+                attestationExcludeCredentials: attestationExcludeCredentials,
+                attestationExtensions: attestationExtensions,
+                assertionAllowCredentials: assertionAllowCredentials,
+                assertionExtensions: assertionExtensions
+            }).done(function(response) {
+                console.log(response);
+                if(response.success) {
+                    $('#infomsg').text(response.success);
+                    $('#infoalert').removeClass('d-none');
+                } else if(response.fail) {
+                    $('#errmsg').text(response.fail);
+                    $('#erralert').removeClass('d-none');
+                }
+            }).catch(function(e) {
+                console.log("Error Saving oprions.");
+                console.log(e);
+                if(e.responseJSON.fail) {
+                    $('#errmsg').text(e.responseJSON.fail);
+                    $('#erralert').removeClass('d-none');
+                }
+            });
+        });
+
+        $("#allowTransportsAddBtn").on('click', function (e) {
+            if($("#allowTransportsText").val() == "") {
+                $("#allowTransportsText").val($("#allowTransportsSelect option:selected").val());
+            } else {
+                var sc = $("#allowTransportsText").val().split(' ');
+                if($.inArray($("#allowTransportsSelect option:selected").val(), sc) == -1) {
+                    sc.push($("#allowTransportsSelect option:selected").val());
+                    $("#allowTransportsText").val(sc.join(' '));
+                }
+            }
+        });
+
+        $("#excludeTransportsAddBtn").on('click', function (e) {
+            if($("#excludeTransportsText").val() == "") {
+                $("#excludeTransportsText").val($("#excludeTransportsSelect option:selected").val());
+            } else {
+                var sc = $("#excludeTransportsText").val().split(' ');
+                if($.inArray($("#excludeTransportsSelect option:selected").val(), sc) == -1) {
+                    sc.push($("#excludeTransportsSelect option:selected").val());
+                    $("#excludeTransportsText").val(sc.join(' '));
+                }
+            }
+        });
+
+        $("#acceptableTransportsAddBtn").on('click', function (e) {
+            if($("#acceptableTransportsText").val() == "") {
+                $("#acceptableTransportsText").val($("#acceptableTransportsSelect option:selected").val());
+            } else {
+                var sc = $("#acceptableTransportsText").val().split(' ');
+                if($.inArray($("#acceptableTransportsSelect option:selected").val(), sc) == -1) {
+                    sc.push($("#acceptableTransportsSelect option:selected").val());
+                    $("#acceptableTransportsText").val(sc.join(' '));
+                }
+            }
+        });
     });
 
     </script>

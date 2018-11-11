@@ -24,9 +24,7 @@ from models import Users
 
 
 app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///{}'.format(
-    os.path.join(
-        os.path.dirname(os.path.abspath(__name__)), 'webauthn.db'))
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///{}'.format(os.path.join(os.path.dirname(os.path.abspath(__name__)), 'webauthn.db'))
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 sk = os.environ.get('FLASK_SECRET_KEY')
 app.secret_key = sk if sk else os.urandom(40)
@@ -34,11 +32,14 @@ db.init_app(app)
 login_manager = LoginManager()
 login_manager.init_app(app)
 
+_version_ = '0.8'
+
 #
-# NOTE: PLEASE CHAGE TO YOUR RP_ID AND ORIGIN URL. THE URL MUST BE HTTPS SCHEMA.
+# NOTE: PLEASE CHANGE TO YOUR RP_ID , ORIGIN URL AND PORT NUMBER FROM OS ENVIRONMENT VARIBLES.
 #
-RP_ID = 'www.example.com'
-ORIGIN = 'https://www.example.com'
+RP_ID = os.getenv('WEBAUTHN_RP_ID', 'www.example.com')
+ORIGIN = os.getenv('WEBAUTHN_ORIGIN', 'https://www.example.com')
+PORT = os.getenv('WEBAUTHN_PORT', '5000')
 
 # Trust anchors (trusted attestation roots) should be
 # placed in TRUST_ANCHOR_DIR.
@@ -57,7 +58,7 @@ def load_user(user_id):
 
 @app.route('/')
 def index():
-    return render_template('index.html')
+    return render_template('index.html', app_version = _version_)
 
 
 @app.route('/users', methods=['GET'])
@@ -135,6 +136,7 @@ def webauthn_begin_activate():
         display_name,
         'https://example.com')
 
+    print(make_credential_options.registration_dict)
     retres = json.dumps(make_credential_options.registration_dict, indent=2)
     session['att_option'] = retres
 
@@ -403,6 +405,95 @@ def view_assertion():
     return jsonify(webauthn_assertion)
 
 
+@app.route('/options', methods=['GET'])
+def get_options():
+
+    try:
+        options = webauthn.WebAuthnOptions()
+        options.load()
+        options_dict = options.get()
+    except Exception as e:
+        app.logger.debug('Options failed. Error: {}'.format(e))
+        return jsonify({'fail': 'Options failed. Error: {}'.format(e)})
+
+    return jsonify(options_dict)
+
+
+@app.route('/options', methods=['POST'])
+def set_options():
+    
+    conveyancePreference = request.form.get('conveyancePreference')
+    userVerification = request.form.get('userVerification')
+    requireResidentKey = request.form.get('requireResidentKey')
+    authenticatorAttachment = request.form.get('authenticatorAttachment')
+    attestationAllowCredentials = request.form.get('attestationAllowCredentials')
+    attestationExcludeCredentials = request.form.get('attestationExcludeCredentials')
+    attestationExtensions = request.form.get('attestationExtensions')
+    assertionAllowCredentials = request.form.get('assertionAllowCredentials')
+    assertionExtensions = request.form.get('assertionExtensions')
+
+    try:
+        options = webauthn.WebAuthnOptions()
+        options.load()
+
+        if conveyancePreference in webauthn.WebAuthnOptions.SUPPORTED_CONVEYANCE_PREFARENCE:
+            options.conveyancePreference = conveyancePreference
+        else:
+            return jsonify({'fail': 'Option Selection Error (conveyancePreference).'})
+        if userVerification in webauthn.WebAuthnOptions.SUPPORTED_AUTHENTICATIONSELECTION_USERVERIFICATION:
+            options.userVerification = userVerification
+        else:
+            return jsonify({'fail': 'Option Selection Error (userVerification).'})
+        if requireResidentKey in webauthn.WebAuthnOptions.SUPPORTED_REQUIRE_REDIDENTKEY:
+            options.requireResidentKey = requireResidentKey
+        else:
+            return jsonify({'fail': 'Option Selection Error (requireResidentKey).'})
+        if authenticatorAttachment in webauthn.WebAuthnOptions.SUPPORTED_AUTHENTICATIONSELECTION_ATTACHIMENT or authenticatorAttachment == '':
+            options.authenticatorAttachment = authenticatorAttachment
+        else:
+            return jsonify({'fail': 'Option Selection Error (authenticatorAttachment).'})
+        if set(attestationAllowCredentials.split(' ')).issubset(webauthn.WebAuthnOptions.SUPPORTED_TRANSPORTS) or attestationAllowCredentials == '':
+            options.attestationAllowCredentials = attestationAllowCredentials.split(' ')
+        else:
+            return jsonify({'fail': 'Option Selection Error (attestationAllowCredentials).'})
+        if set(attestationExcludeCredentials.split(' ')).issubset(webauthn.WebAuthnOptions.SUPPORTED_TRANSPORTS) or attestationExcludeCredentials == '':
+            options.attestationExcludeCredentials = attestationExcludeCredentials.split(' ')
+        else:
+            return jsonify({'fail': 'Option Selection Error (attestationExcludeCredentials).'})
+        if attestationExtensions != '':
+            tmp_dict = {}
+            for lineitem in attestationExtensions.splitlines():
+                item = [x.strip() for x in lineitem.split('=')]
+                if len(item) == 2:
+                    tmp_dict[item[0]] = item[1]
+            if len(tmp_dict) > 0:
+                options.attestationExtensions = tmp_dict
+            else:
+                return jsonify({'fail': 'Option Format Error (assertionExtensions).'})
+        if set(assertionAllowCredentials.split(' ')).issubset(webauthn.WebAuthnOptions.SUPPORTED_TRANSPORTS) or assertionAllowCredentials == '':
+            options.assertionAllowCredentials = assertionAllowCredentials.split(' ')
+        else:
+            return jsonify({'fail': 'Option Selection Error (assertionAllowCredentials).'})
+        if assertionExtensions != '':
+            tmp_dict = {}
+            for lineitem in assertionExtensions.splitlines():
+                item = [x.strip() for x in lineitem.split('=')]
+                if len(item) == 2:
+                    tmp_dict[item[0]] = item[1]
+            if len(tmp_dict) > 0:
+                options.attestationExtensions = tmp_dict
+            else:
+                return jsonify({'fail': 'Option Format Error (assertionExtensions).'})
+
+        options.save()
+
+    except Exception as e:
+        app.logger.debug('Options failed. Error: {}'.format(e))
+        return jsonify({'fail': 'Options failed. Error: {}'.format(e)})
+    
+    return jsonify({'success': 'Options successfully saved.'})
+
+
 @app.route('/logout')
 @login_required
 def logout():
@@ -411,4 +502,4 @@ def logout():
 
 
 if __name__ == '__main__':
-    app.run(host='127.0.0.1', port=5000, debug=True)
+    app.run(host='127.0.0.1', port=int(PORT, 10), debug=True)

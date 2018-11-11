@@ -47,18 +47,15 @@ COSE_ALGLABEL_RS256 = 'RS256'
 # COSE Algorithms Numbers
 COSE_ALG_ES256_X = -2
 COSE_ALG_ES256_Y = -3
-
 COSE_ALG_RS256_N = -1
 COSE_ALG_RS256_E = -2
 
 
-# Only supporting 'None', 'Basic', and 'Self Attestation' attestation types for now.
 AT_BASIC = 'Basic'
-AT_ECDAA = 'ECDAA'
+AT_ECDAA = 'ECDAA'            # Not supported now.
 AT_NONE = 'None'
-AT_ATTESTATION_CA = 'AttCA'
+AT_ATTESTATION_CA = 'AttCA'   # Not supported now.
 AT_SELF_ATTESTATION = 'Self'
-
 
 SUPPORTED_ATTESTATION_TYPES = (
     AT_BASIC,
@@ -97,6 +94,9 @@ class AuthenticationRejectedException(Exception):
 class RegistrationRejectedException(Exception):
     pass
 
+class CommonRejectedException(Exception):
+    pass
+
 class WebAuthnTools(object):
     
     def __init__(self):
@@ -104,6 +104,245 @@ class WebAuthnTools(object):
     
     def format_user_pubkey(self, pub_key):
         return _encodeToJWK_public_key(_webauthn_b64_decode(pub_key))
+
+class WebAuthnOptions(object):
+
+    _options_filename = os.path.join(os.path.dirname(os.path.abspath(__name__)), 'webauthnOptions.json')
+
+    SUPPORTED_CONVEYANCE_PREFARENCE = (
+        '',                  # 'not set'
+        'none',
+        'indirect',
+        'direct',
+    )
+    SUPPORTED_AUTHENTICATIONSELECTION_USERVERIFICATION = (
+        '',                  # 'not set'
+        'required',
+        'preferred',
+        'discouraged',
+    )
+    SUPPORTED_REQUIRE_REDIDENTKEY = (
+        '',                  # 'not set'
+        'true',
+        'false',
+    )
+    SUPPORTED_AUTHENTICATIONSELECTION_ATTACHIMENT = (
+        '',                  # 'not set'
+        'cross-platform',
+        'platform',
+    )
+    SUPPORTED_TRANSPORTS = (
+        '',                  # 'not set'
+        'usb',
+        'nfc',
+        'ble',
+        'internal',
+    )
+
+    def __init__(self):
+        self.settings = {
+            'version' : '1',
+            'attestation' : {
+                'conveyancePreference': '',          # 'none', 'indirect', 'direct'
+                'authenticatorSelection': {
+                    'userVerification': '',          # 'required', 'preferred', 'discouraged'
+                    'requireResidentKey': '',        # 'true', 'false'
+                    'authenticatorAttachment': ''    # 'cross-platform', 'platform'
+                },
+                'allowCredentials': {
+                    'transports': []                   # 'usb', 'nfc', 'ble', 'internal'
+                },
+                'excludeCredentials': {
+                    'transports': []                   # 'usb', 'nfc', 'ble', 'internal'
+                },
+                'extensions': {}
+            },
+            'assertion' : {
+                'allowCredentials': {
+                    'transports': []                   # 'usb', 'nfc', 'ble', 'internal'
+                },
+                'extensions': {}
+            }
+        }
+
+    def save(self):
+        try:
+            with open(self._options_filename, 'w') as f:
+                json.dump(self.settings, f)
+        except Exception as e:
+            raise CommonRejectedException('Options Save Error.')
+    
+    def load(self):
+        if not os.path.isfile(self._options_filename):
+            self.save()
+        with open(self._options_filename, 'r') as f:
+            tmpsettings = json.load(f)
+        if tmpsettings['version'] != '1':
+            raise CommonRejectedException('Options Incorrect Version Error.')
+        self.settings = tmpsettings
+    
+    def get(self):
+        return self.settings
+
+
+    @property
+    def conveyancePreference(self):
+        return self.settings.get('attestation', {}).get('conveyancePreference', '')
+    @conveyancePreference.setter
+    def conveyancePreference(self, val):
+        if val not in self.SUPPORTED_CONVEYANCE_PREFARENCE:
+            raise CommonRejectedException('Option Selection Error (conveyancePreference).')
+        if 'attestation' in self.settings:
+            if 'conveyancePreference' in self.settings['attestation']:
+                self.settings['attestation']['conveyancePreference'] = val
+            else:
+                raise CommonRejectedException('Dictionary broken Error (conveyancePreference).')
+        else:
+            raise CommonRejectedException('Dictionary broken Error (conveyancePreference).')
+
+    @property
+    def userVerification(self):
+        return self.settings.get('attestation', {}).get('authenticatorSelection', {}).get('userVerification', '')
+    @userVerification.setter
+    def userVerification(self, val):
+        if val not in self.SUPPORTED_AUTHENTICATIONSELECTION_USERVERIFICATION:
+            raise CommonRejectedException('Option Selection Error (userVerification).')
+        if 'attestation' in self.settings:
+            if 'authenticatorSelection' in self.settings['attestation']:
+                if 'userVerification' in self.settings['attestation']['authenticatorSelection']:
+                    self.settings['attestation']['authenticatorSelection']['userVerification'] = val
+                else:
+                    raise CommonRejectedException('Dictionary broken Error (userVerification).')
+            else:
+                raise CommonRejectedException('Dictionary broken Error (userVerification).')
+        else:
+            raise CommonRejectedException('Dictionary broken Error (userVerification).')
+    
+    @property
+    def requireResidentKey(self):
+        return self.settings.get('attestation', {}).get('authenticatorSelection', {}).get('requireResidentKey', '')
+    @requireResidentKey.setter
+    def requireResidentKey(self, val):
+        if val not in self.SUPPORTED_REQUIRE_REDIDENTKEY:
+            raise CommonRejectedException('Option Type Error (requireResidentKey).')
+        if 'attestation' in self.settings:
+            if 'authenticatorSelection' in self.settings['attestation']:
+                if 'requireResidentKey' in self.settings['attestation']['authenticatorSelection']:
+                    self.settings['attestation']['authenticatorSelection']['requireResidentKey'] = val
+                else:
+                    raise CommonRejectedException('Dictionary broken Error (requireResidentKey).')
+            else:
+                raise CommonRejectedException('Dictionary broken Error (requireResidentKey).')
+        else:
+            raise CommonRejectedException('Dictionary broken Error (requireResidentKey).')
+    
+    @property
+    def authenticatorAttachment(self):
+        return self.settings.get('attestation', {}).get('authenticatorSelection', {}).get('authenticatorAttachment', '')
+    @authenticatorAttachment.setter
+    def authenticatorAttachment(self, val):
+        if val not in self.SUPPORTED_AUTHENTICATIONSELECTION_ATTACHIMENT:
+            raise CommonRejectedException('Option Selection Error (authenticatorAttachment).')
+        if 'attestation' in self.settings:
+            if 'authenticatorSelection' in self.settings['attestation']:
+                if 'authenticatorAttachment' in self.settings['attestation']['authenticatorSelection']:
+                    self.settings['attestation']['authenticatorSelection']['authenticatorAttachment'] = val
+                else:
+                    raise CommonRejectedException('Dictionary broken Error (authenticatorAttachment).')
+            else:
+                raise CommonRejectedException('Dictionary broken Error (authenticatorAttachment).')
+        else:
+            raise CommonRejectedException('Dictionary broken Error (authenticatorAttachment).')
+
+    @property
+    def attestationAllowCredentials(self):
+        return self.settings.get('attestation', {}).get('allowCredentials', {}).get('transports', [])
+    @attestationAllowCredentials.setter
+    def attestationAllowCredentials(self, val):
+        if type(val) != list:
+            raise CommonRejectedException('Option Type Error (attestationAllowCredentials).')
+        if not set(val).issubset(self.SUPPORTED_TRANSPORTS):
+            raise CommonRejectedException('Option Selection Error (attestationAllowCredentials).')
+        if 'attestation' in self.settings:
+            if 'allowCredentials' in self.settings['attestation']:
+                if 'transports' in self.settings['attestation']['allowCredentials']:
+                    self.settings['attestation']['allowCredentials']['transports'] = [] if (len(val) == 1 and val[0] == '') else val
+                else:
+                    raise CommonRejectedException('Dictionary broken Error (attestationAllowCredentials).')
+            else:
+                raise CommonRejectedException('Dictionary broken Error (attestationAllowCredentials).')
+        else:
+            raise CommonRejectedException('Dictionary broken Error (attestationAllowCredentials).')
+    
+    @property
+    def attestationExcludeCredentials(self):
+        return self.settings.get('attestation', {}).get('excludeCredentials', {}).get('transports', [])
+    @attestationExcludeCredentials.setter
+    def attestationExcludeCredentials(self, val):
+        if type(val) != list:
+            raise CommonRejectedException('Option Type Error (attestationExcludeCredentials).')
+        if not set(val).issubset(self.SUPPORTED_TRANSPORTS):
+            raise CommonRejectedException('Option Selection Error (attestationExcludeCredentials).')
+        if 'attestation' in self.settings:
+            if 'excludeCredentials' in self.settings['attestation']:
+                if 'transports' in self.settings['attestation']['excludeCredentials']:
+                    self.settings['attestation']['excludeCredentials']['transports'] = [] if (len(val) == 1 and val[0] == '') else val
+                else:
+                    raise CommonRejectedException('Dictionary broken Error (attestationExcludeCredentials).')
+            else:
+                raise CommonRejectedException('Dictionary broken Error (attestationExcludeCredentials).')
+        else:
+            raise CommonRejectedException('Dictionary broken Error (attestationExcludeCredentials).')
+
+    @property
+    def attestationExtensions(self):
+        return self.settings.get('attestation', {}).get('extensions', {})
+    @attestationExtensions.setter
+    def attestationExtensions(self, val):
+        if type(val) != dict:
+            raise CommonRejectedException('Option Type Error (attestationExtensions).')
+        if 'attestation' in self.settings:
+            if 'extensions' in self.settings['attestation']:
+                self.settings['attestation']['extensions'] = val
+            else:
+                raise CommonRejectedException('Dictionary broken Error (attestationExtensions).')
+        else:
+            raise CommonRejectedException('Dictionary broken Error (attestationExtensions).')
+
+    @property
+    def assertionAllowCredentials(self):
+        return self.settings.get('assertion', {}).get('allowCredentials', {}).get('transports', [])
+    @assertionAllowCredentials.setter
+    def assertionAllowCredentials(self, val):
+        if type(val) != list:
+            raise CommonRejectedException('Option Type Error (assertionAllowCredentials).')
+        if not set(val).issubset(self.SUPPORTED_TRANSPORTS):
+            raise CommonRejectedException('Option Selection Error (assertionAllowCredentials).')
+        if 'assertion' in self.settings:
+            if 'allowCredentials' in self.settings['assertion']:
+                if 'transports' in self.settings['assertion']['allowCredentials']:
+                    self.settings['assertion']['allowCredentials']['transports'] = [] if (len(val) == 1 and val[0] == '') else val
+                else:
+                    raise CommonRejectedException('Dictionary broken Error (assertionAllowCredentials).')
+            else:
+                raise CommonRejectedException('Dictionary broken Error (assertionAllowCredentials).')
+        else:
+            raise CommonRejectedException('Dictionary broken Error (assertionAllowCredentials).')
+
+    @property
+    def assertionExtensions(self):
+        return self.settings.get('assertion', {}).get('extensions', {})
+    @assertionExtensions.setter
+    def assertionExtensions(self, val):
+        if type(val) != dict:
+            raise CommonRejectedException('Option Type Error (assertionExtensions).')
+        if 'assertion' in self.settings:
+            if 'extensions' in self.settings['assertion']:
+                self.settings['assertion']['extensions'] = val
+            else:
+                raise CommonRejectedException('Dictionary broken Error (assertionExtensions).')
+        else:
+            raise CommonRejectedException('Dictionary broken Error (assertionExtensions).')
 
 
 class WebAuthnMakeCredentialOptions(object):
@@ -138,11 +377,6 @@ class WebAuthnMakeCredentialOptions(object):
                 'displayName': self.display_name,
                 'icon': self.icon_url
             },
-            'authenticatorSelection': {
-                #'userVerification': 'required',                 # required, preferred, discouraged
-                #'requireResidentKey': True,                     # 
-                #'authenticatorAttachment': 'cross-platform'     # CTAP or Platform (TPM, TEE etc..)  cross-platform, platform
-            },
             'pubKeyCredParams': [
                 {
                     'alg': -257,                                # RS256
@@ -153,30 +387,40 @@ class WebAuthnMakeCredentialOptions(object):
                     'type': 'public-key',
                 }
             ],
-            'timeout': 60000,  # 1 minute.
-            'allowCredentials': [
-                #{
-                #    'type': 'public-key',
-                #    'id': id,
-                #    'transports': [ 'usb', 'nfc', 'ble', 'internal' ],
-                #}
-            ],
-            'excludeCredentials': [
-                #{
-                #    'type': 'public-key',
-                #    'id': id,
-                #    'transports': [ 'usb', 'nfc', 'ble', 'internal' ],
-                #}
-            ],
-            # Relying Parties may use AttestationConveyancePreference to specify their
-            # preference regarding attestation conveyance during credential generation.
-            'attestation': 'direct',  # none, indirect, direct
-            'extensions': {
-                # Include location information in attestation.
-                #'webauthn.loc': True
-                #'webauthn.uvm': True
-            }
+            'timeout': 60000,  # 1 min.
         }
+
+        options = WebAuthnOptions()
+        options.load()
+
+        if options.conveyancePreference != '':
+            registration_dict['attestation'] = options.conveyancePreference
+        if options.userVerification != '' or options.requireResidentKey != '' or options.authenticatorAttachment != '':
+            registration_dict['authenticatorSelection'] = {}
+            if options.userVerification != '':
+                registration_dict['authenticatorSelection']['userVerification'] = options.userVerification
+            if options.requireResidentKey != '':
+                registration_dict['authenticatorSelection']['requireResidentKey'] = options.requireResidentKey
+            if options.authenticatorAttachment != '':
+                registration_dict['authenticatorSelection']['authenticatorAttachment'] = options.authenticatorAttachment
+        if options.attestationAllowCredentials != []:
+            registration_dict['allowCredentials'] = [
+                {
+                    'type': 'public-key',
+                    #'id': id
+                }
+            ]
+            registration_dict['allowCredentials'][0]['transports'] = options.attestationAllowCredentials
+        if options.attestationExcludeCredentials != []:
+            registration_dict['excludeCredentials'] = [
+                {
+                    'type': 'public-key',
+                    #'id': id
+                }
+            ]
+            registration_dict['excludeCredentials'][0]['transports'] = options.attestationExcludeCredentials
+        if options.attestationExtensions != {}:
+            registration_dict['extensions'] = options.attestationExtensions
 
         return registration_dict
 
@@ -200,24 +444,25 @@ class WebAuthnAssertionOptions(object):
         if not self.challenge:
             raise AuthenticationRejectedException('Invalid challenge.')
 
-        # TODO: Handle multiple acceptable credentials.
-        acceptable_credential = {
-            'type': 'public-key',
-            'id': self.webauthn_user.credential_id,
-            'transports': ['usb', 'nfc', 'ble', 'internal']
-        }
-
         assertion_dict = {
             'challenge': self.challenge,
-            'timeout': 60000,  # 1 minute.
-            'allowCredentials': [
-                acceptable_credential,
-            ],
+            'timeout': 60000,  # 1 min.
             'rpId': self.webauthn_user.rp_id,
-            'extensions': {
-                #'webauthn.uvm': True
-            }
+            'allowCredentials': [
+                {
+                    'type': 'public-key',
+                    'id': self.webauthn_user.credential_id
+                }
+            ]
         }
+
+        options = WebAuthnOptions()
+        options.load()
+
+        if options.assertionAllowCredentials != []:
+            assertion_dict['allowCredentials'][0]['transports'] = options.assertionAllowCredentials
+        if options.assertionExtensions != {}:
+            assertion_dict['extensions'] = options.assertionExtensions
 
         return assertion_dict
 
@@ -525,7 +770,6 @@ class WebAuthnRegistrationResponse(object):
                 cred_id = attestation_data[18:18 + credential_id_len]
                 credential_pub_key = attestation_data[18 + credential_id_len:]
                 cpk = cbor2.loads(credential_pub_key)
-                print(list(cpk.items()))
 
                 credential_alg, public_key = _get_publickey(cpk)
                 public_key_encoded = _encode_public_key(credential_alg, public_key)
@@ -563,7 +807,6 @@ class WebAuthnRegistrationResponse(object):
                 cred_id = attestation_data[18:18 + credential_id_len]
                 credential_pub_key = attestation_data[18 + credential_id_len:]
                 cpk = cbor2.loads(credential_pub_key)
-                print(list(cpk.items()))
 
                 if cpk[COSE_KEYNAME_ALG] != COSE_ALG_ES256 and cpk[COSE_KEYNAME_ALG] != COSE_ALG_RS256:
                     self.addLog('Unsupported algorithm.')
@@ -651,9 +894,7 @@ class WebAuthnRegistrationResponse(object):
             
             success = False 
             for crt in certs:
-                print(crt)
                 for attr in crt.subject:
-                    print(attr)
                     if attr.oid.dotted_string == '2.5.4.3' and attr.value == 'attest.android.com':
                         certificate_public_key = crt.public_key()
                         verification_data = ''.join([res_header_encoded, '.', res_payload_encoded])
@@ -725,7 +966,6 @@ class WebAuthnRegistrationResponse(object):
             # specification, i.e., required for the key type "kty" and algorithm "alg" (see
             # Section 8 of [RFC8152]).
             cpk = cbor2.loads(credential_pub_key)
-            print(list(cpk.items()))
 
             credential_alg, public_key = _get_publickey(cpk)
             public_key_encoded = _encode_public_key(credential_alg, public_key)
@@ -1118,7 +1358,6 @@ class WebAuthnAssertionResponse(object):
 
         decoded_clientdata = _webauthn_b64_decode(self.assertion_response.get('clientData', '').decode('utf-8'))
         clientdata = json.loads(decoded_clientdata)
-        print(str(clientdata))
 
         auth_data = self.assertion_response.get('authData')
         decoded_auth_data = _webauthn_b64_decode(auth_data)
@@ -1417,8 +1656,6 @@ def _encode_public_key(alg_type, public_key):
         return '\x04' + '{:064x}{:064x}'.format(numbers.x, numbers.y).decode('hex')
     elif alg_type == COSE_ALG_RS256:
         numbers = public_key.public_numbers()
-        print(numbers.e)
-        print(numbers.n)
         return '\x0b' + '{:06x}{:0512x}'.format(numbers.e, numbers.n).decode('hex')
     else:
         raise RegistrationRejectedException('bad algorithm type.')
