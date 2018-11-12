@@ -78,7 +78,7 @@ def get_user(id):
         u_dict = Users.to_dict(u)
         webauthn_tools = webauthn.WebAuthnTools()
         u_dict['pub_key'] = webauthn_tools.format_user_pubkey(u_dict['pub_key'])
-        return jsonify(u_dict),
+        return jsonify(u_dict)
 
 @app.route("/users", methods=['DELETE'])
 def delete_alluser(id):
@@ -428,9 +428,9 @@ def set_options():
     authenticatorAttachment = request.form.get('authenticatorAttachment')
     attestationAllowCredentials = request.form.get('attestationAllowCredentials')
     attestationExcludeCredentials = request.form.get('attestationExcludeCredentials')
-    attestationExtensions = request.form.get('attestationExtensions')
+    attestationExtensions = request.form.get('attestationExtensions', None)
     assertionAllowCredentials = request.form.get('assertionAllowCredentials')
-    assertionExtensions = request.form.get('assertionExtensions')
+    assertionExtensions = request.form.get('assertionExtensions', None)
 
     try:
         options = webauthn.WebAuthnOptions()
@@ -460,28 +460,29 @@ def set_options():
             options.attestationExcludeCredentials = attestationExcludeCredentials.split(' ')
         else:
             return jsonify({'fail': 'Option Selection Error (attestationExcludeCredentials).'})
-        if attestationExtensions != '':
+        if attestationExtensions is not None:
             tmp_dict = {}
             for lineitem in attestationExtensions.splitlines():
                 item = [x.strip() for x in lineitem.split('=')]
                 if len(item) == 2:
                     tmp_dict[item[0]] = item[1]
-            if len(tmp_dict) > 0:
+            if len(tmp_dict) == len(attestationExtensions.splitlines()):
+                print(tmp_dict)
                 options.attestationExtensions = tmp_dict
             else:
-                return jsonify({'fail': 'Option Format Error (assertionExtensions).'})
+                return jsonify({'fail': 'Option Format Error (attestationExtensions).'})
         if set(assertionAllowCredentials.split(' ')).issubset(webauthn.WebAuthnOptions.SUPPORTED_TRANSPORTS) or assertionAllowCredentials == '':
             options.assertionAllowCredentials = assertionAllowCredentials.split(' ')
         else:
             return jsonify({'fail': 'Option Selection Error (assertionAllowCredentials).'})
-        if assertionExtensions != '':
+        if assertionExtensions is not None:
             tmp_dict = {}
             for lineitem in assertionExtensions.splitlines():
                 item = [x.strip() for x in lineitem.split('=')]
                 if len(item) == 2:
                     tmp_dict[item[0]] = item[1]
-            if len(tmp_dict) > 0:
-                options.attestationExtensions = tmp_dict
+            if len(tmp_dict) == len(assertionExtensions.splitlines()):
+                options.assertionExtensions = tmp_dict
             else:
                 return jsonify({'fail': 'Option Format Error (assertionExtensions).'})
 
