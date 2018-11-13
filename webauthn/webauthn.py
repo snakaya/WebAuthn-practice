@@ -431,29 +431,34 @@ class WebAuthnMakeCredentialOptions(object):
 
 class WebAuthnAssertionOptions(object):
 
-    def __init__(self, webauthn_user, challenge):
-        self.webauthn_user = webauthn_user
+    def __init__(self, webauthn_user_list, challenge):
+        self.webauthn_user_list = webauthn_user_list
         self.challenge = challenge
 
     @property
     def assertion_dict(self):
-        if not isinstance(self.webauthn_user, WebAuthnUser):
-            raise AuthenticationRejectedException('Invalid user type.')
-        if not self.webauthn_user.credential_id:
-            raise AuthenticationRejectedException('Invalid credential ID.')
         if not self.challenge:
             raise AuthenticationRejectedException('Invalid challenge.')
+        if not isinstance(self.webauthn_user_list, list):
+            raise AuthenticationRejectedException('Invalid user type.')
+        if not len(self.webauthn_user_list) > 0:
+            raise AuthenticationRejectedException('No Users.')
+        if not self.webauthn_user_list[0].credential_id:
+            raise AuthenticationRejectedException('Invalid credential ID.')
+        
+        rp_id = self.webauthn_user_list[0].rp_id
+        allow_cred_list = []
+        for webauthn_user in self.webauthn_user_list:
+            allow_cred_list.append({
+                'type': 'public-key',
+                'id': webauthn_user.credential_id
+            })
 
         assertion_dict = {
             'challenge': self.challenge,
             'timeout': 60000,  # 1 min.
-            'rpId': self.webauthn_user.rp_id,
-            'allowCredentials': [
-                {
-                    'type': 'public-key',
-                    'id': self.webauthn_user.credential_id
-                }
-            ]
+            'rpId': rp_id,
+            'allowCredentials': allow_cred_list
         }
 
         options = WebAuthnOptions()

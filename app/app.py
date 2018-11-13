@@ -11,10 +11,6 @@ from flask import request
 from flask import Response
 from flask import session
 from flask import url_for
-from flask_login import LoginManager
-from flask_login import login_required
-from flask_login import login_user
-from flask_login import logout_user
 
 import util
 
@@ -26,11 +22,9 @@ from models import Users
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///{}'.format(os.path.join(os.path.dirname(os.path.abspath(__name__)), 'webauthn.db'))
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-sk = os.environ.get('FLASK_SECRET_KEY')
+sk = os.getenv('FLASK_SECRET_KEY')
 app.secret_key = sk if sk else os.urandom(40)
 db.init_app(app)
-login_manager = LoginManager()
-login_manager.init_app(app)
 
 _version_ = '0.8'
 
@@ -44,16 +38,6 @@ PORT = os.getenv('WEBAUTHN_PORT', '5000')
 # Trust anchors (trusted attestation roots) should be
 # placed in TRUST_ANCHOR_DIR.
 TRUST_ANCHOR_DIR = 'trusted_attestation_roots'
-
-
-@login_manager.user_loader
-def load_user(user_id):
-    try:
-        int(user_id)
-    except ValueError:
-        return None
-
-    return Users.query.get(int(user_id))
 
 
 @app.route('/')
@@ -136,9 +120,8 @@ def webauthn_begin_activate():
         display_name,
         'https://example.com')
 
-    print(make_credential_options.registration_dict)
-    retres = json.dumps(make_credential_options.registration_dict, indent=2)
-    session['att_option'] = retres
+    reg_dict = json.dumps(make_credential_options.registration_dict, indent=2)
+    session['att_option'] = reg_dict
 
     return jsonify(make_credential_options.registration_dict)
 
@@ -147,36 +130,37 @@ def webauthn_begin_activate():
 def webauthn_begin_assertion():
     username = request.form.get('username')
 
-    #if not util.validate_username(username):
-    #    return make_response(jsonify({'fail': 'Invalid username.'}), 401)
-
-    user = Users.query.filter_by(username=username).first()
-    if not user:
+    webauthn_user_list = []
+    users = Users.query.filter_by(username=username).all()
+    if len(users) == 0:
         app.logger.debug('User does not exist.')
         return make_response(jsonify({'fail': 'User does not exist.'}), 401)
-    if not user.credential_id:
-        app.logger.debug('Unknown credential ID.')
-        return make_response(jsonify({'fail': 'Unknown credential ID.'}), 401)
 
     if 'challenge' in session:
         del session['challenge']
-
     challenge = util.generate_challenge(32)
-
     session['challenge'] = challenge
 
-    webauthn_user = webauthn.WebAuthnUser(
-        user.ukey,
-        user.username,
-        user.display_name,
-        user.icon_url,
-        user.credential_id,
-        user.pub_key,
-        user.sign_count,
-        user.rp_id)
+    for user in users:
+    
+        if not user.credential_id:
+            app.logger.debug('Unknown credential ID.')
+            return make_response(jsonify({'fail': 'Unknown credential ID.'}), 401)
 
+        webauthn_user = webauthn.WebAuthnUser(
+            user.ukey,
+            user.username,
+            user.display_name,
+            user.icon_url,
+            user.credential_id,
+            user.pub_key,
+            user.sign_count,
+            user.rp_id)
+
+        webauthn_user_list.append(webauthn_user)
+    
     webauthn_assertion_options = webauthn.WebAuthnAssertionOptions(
-        webauthn_user,
+        webauthn_user_list,
         challenge)
 
     return jsonify(webauthn_assertion_options.assertion_dict)
@@ -241,8 +225,7 @@ def verify_credential_info():
     # to a different user, the Relying Party SHOULD fail this registration
     # ceremony, or it MAY decide to accept the registration, e.g. while deleting
     # the older registration.
-    credential_id_exists = Users.query.filter_by(
-        credential_id=webauthn_credential.credential_id).first()
+    credential_id_exists = Users.query.filter_by(credential_id=webauthn_credential.credential_id).first()
     if credential_id_exists:
         app.logger.debug('Credential ID already exists.')
         webauthn_registration_response.addLog('Credential ID already exists.')
@@ -264,7 +247,7 @@ def verify_credential_info():
     db.session.commit()
 
     webauthn_registration_response.addLog('----- [Registration] Server Successfully Return. -----')
-    return jsonify({'success': 'User successfully registered.', 'debug_log': webauthn_registration_response.getLog()})
+    return jsonify({'success': 'User ({}) successfully registered.'.format(username), 'debug_log': webauthn_registration_response.getLog()})
 
 
 @app.route('/verify_assertion', methods=['POST'])
@@ -326,11 +309,9 @@ def verify_assertion():
     db.session.add(user)
     db.session.commit()
 
-    login_user(user)
-
     webauthn_assertion_response.addLog('----- [Log-in] Server Successfully Return. -----')
     return jsonify({
-        'success': u'Successfully authenticated as {}'.format(user.username),
+        'success': u'Successfully logged in as {}'.format(user.username),
         'debug_log': webauthn_assertion_response.getLog()
     })
 
@@ -338,14 +319,11 @@ def verify_assertion():
 @app.route('/view/attestation', methods=['POST'])
 def view_attestation():
     challenge = session['challenge']
-    username = session['register_username']
-    display_name = session['register_display_name']
-    ukey = session['register_ukey']
 
     registration_response = request.form
     trust_anchor_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), TRUST_ANCHOR_DIR)
     trusted_attestation_cert_required = True
-    self_attestation_permitted = False
+    self_attestation_permitted = True
     none_attestation_permitted = True
 
     webauthn_registration_response = webauthn.WebAuthnRegistrationResponse(
@@ -493,13 +471,6 @@ def set_options():
         return jsonify({'fail': 'Options failed. Error: {}'.format(e)})
     
     return jsonify({'success': 'Options successfully saved.'})
-
-
-@app.route('/logout')
-@login_required
-def logout():
-    logout_user()
-    return redirect(url_for('index'))
 
 
 if __name__ == '__main__':
