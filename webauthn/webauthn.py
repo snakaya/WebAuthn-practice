@@ -138,6 +138,10 @@ class WebAuthnOptions(object):
         'ble',
         'internal',
     )
+    SUPPORTED_ENABLE_CREDENTIALS = (
+        'true',
+        'false',
+    )
 
     def __init__(self):
         self.settings = {
@@ -159,6 +163,7 @@ class WebAuthnOptions(object):
             },
             'assertion' : {
                 'allowCredentials': {
+                    'enabled': '',                     # 'true', 'false'
                     'transports': []                   # 'usb', 'nfc', 'ble', 'internal'
                 },
                 'extensions': {}
@@ -310,6 +315,24 @@ class WebAuthnOptions(object):
             raise CommonRejectedException('Dictionary broken Error (attestationExtensions).')
 
     @property
+    def enableAssertionAllowCredentials(self):
+        return self.settings.get('assertion', {}).get('allowCredentials', {}).get('enabled', '')
+    @enableAssertionAllowCredentials.setter
+    def enableAssertionAllowCredentials(self, val):
+        if val not in self.SUPPORTED_ENABLE_CREDENTIALS:
+            raise CommonRejectedException('Option Type Error (enableAssertionAllowCredentials).')
+        if 'assertion' in self.settings:
+            if 'allowCredentials' in self.settings['assertion']:
+                if 'enabled' in self.settings['assertion']['allowCredentials']:
+                    self.settings['assertion']['allowCredentials']['enabled'] = val
+                else:
+                    raise CommonRejectedException('Dictionary broken Error (enableAssertionAllowCredentials).')
+            else:
+                raise CommonRejectedException('Dictionary broken Error (enableAssertionAllowCredentials).')
+        else:
+            raise CommonRejectedException('Dictionary broken Error (enableAssertionAllowCredentials).')
+
+    @property
     def assertionAllowCredentials(self):
         return self.settings.get('assertion', {}).get('allowCredentials', {}).get('transports', [])
     @assertionAllowCredentials.setter
@@ -431,9 +454,13 @@ class WebAuthnMakeCredentialOptions(object):
 
 class WebAuthnAssertionOptions(object):
 
-    def __init__(self, webauthn_user_list, challenge):
+    def __init__(self, webauthn_user_list, challenge, rp_id):
         self.webauthn_user_list = webauthn_user_list
         self.challenge = challenge
+        self.rp_id = rp_id
+
+        self.options = WebAuthnOptions()
+        self.options.load()
 
     @property
     def assertion_dict(self):
@@ -441,33 +468,32 @@ class WebAuthnAssertionOptions(object):
             raise AuthenticationRejectedException('Invalid challenge.')
         if not isinstance(self.webauthn_user_list, list):
             raise AuthenticationRejectedException('Invalid user type.')
-        if not len(self.webauthn_user_list) > 0:
+        if self.options.enableAssertionAllowCredentials == 'true' and  not len(self.webauthn_user_list) > 0:
             raise AuthenticationRejectedException('No Users.')
-        if not self.webauthn_user_list[0].credential_id:
-            raise AuthenticationRejectedException('Invalid credential ID.')
-        
-        rp_id = self.webauthn_user_list[0].rp_id
-        allow_cred_list = []
-        for webauthn_user in self.webauthn_user_list:
-            allow_cred_list.append({
-                'type': 'public-key',
-                'id': webauthn_user.credential_id
-            })
+        #if not self.webauthn_user_list[0].credential_id:
+        #    raise AuthenticationRejectedException('Invalid credential ID.')
 
         assertion_dict = {
             'challenge': self.challenge,
             'timeout': 60000,  # 1 min.
-            'rpId': rp_id,
-            'allowCredentials': allow_cred_list
+            'rpId': self.rp_id
         }
 
-        options = WebAuthnOptions()
-        options.load()
+        if self.options.enableAssertionAllowCredentials == 'true':
+            allow_cred_list = []
+            
+            for webauthn_user in self.webauthn_user_list:
+                tmp_dict = {
+                    'type': 'public-key',
+                    'id': webauthn_user.credential_id
+                }
+                if self.options.assertionAllowCredentials != []:
+                    tmp_dict['transports'] = self.options.assertionAllowCredentials
+                allow_cred_list.append(tmp_dict)
+            assertion_dict['allowCredentials'] = allow_cred_list
 
-        if options.assertionAllowCredentials != []:
-            assertion_dict['allowCredentials'][0]['transports'] = options.assertionAllowCredentials
-        if options.assertionExtensions != {}:
-            assertion_dict['extensions'] = options.assertionExtensions
+        if self.options.assertionExtensions != {}:
+            assertion_dict['extensions'] = self.options.assertionExtensions
 
         return assertion_dict
 
@@ -1356,7 +1382,7 @@ class WebAuthnAssertionResponse(object):
     def view(self):
         credential_id = self.assertion_response.get('id')
         raw_id = self.assertion_response.get('rawId')
-        user_handle = self.assertion_response.get('userHandle')
+        user_handle = self.assertion_response.get('userHandle', '')
         sig = self.assertion_response.get('signature').decode('hex')
         assertion_client_extensions = self.assertion_response.get('assertionClientExtensions')
         ace = json.loads(assertion_client_extensions)

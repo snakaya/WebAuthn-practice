@@ -83,7 +83,6 @@ def delete_user(id):
 
 @app.route('/webauthn_begin_activate', methods=['POST'])
 def webauthn_begin_activate():
-    # MakeCredentialOptions
     username = request.form.get('username')
     display_name = request.form.get('displayName')
 
@@ -130,38 +129,40 @@ def webauthn_begin_activate():
 def webauthn_begin_assertion():
     username = request.form.get('username')
 
-    webauthn_user_list = []
-    users = Users.query.filter_by(username=username).all()
-    if len(users) == 0:
-        app.logger.debug('User does not exist.')
-        return make_response(jsonify({'fail': 'User does not exist.'}), 401)
-
     if 'challenge' in session:
         del session['challenge']
     challenge = util.generate_challenge(32)
     session['challenge'] = challenge
 
-    for user in users:
-    
-        if not user.credential_id:
-            app.logger.debug('Unknown credential ID.')
-            return make_response(jsonify({'fail': 'Unknown credential ID.'}), 401)
+    webauthn_user_list = []
 
-        webauthn_user = webauthn.WebAuthnUser(
-            user.ukey,
-            user.username,
-            user.display_name,
-            user.icon_url,
-            user.credential_id,
-            user.pub_key,
-            user.sign_count,
-            user.rp_id)
+    options = webauthn.WebAuthnOptions()
+    options.load()
 
-        webauthn_user_list.append(webauthn_user)
+    if options.enableAssertionAllowCredentials == 'true':
+        users = Users.query.filter_by(username=username).all()
+        if len(users) == 0:
+            app.logger.debug('User does not exist.')
+            return make_response(jsonify({'fail': 'User does not exist.'}), 401)
+        for user in users:
+            if not user.credential_id:
+                app.logger.debug('Unknown credential ID.')
+                return make_response(jsonify({'fail': 'Unknown credential ID.'}), 401)
+            webauthn_user = webauthn.WebAuthnUser(
+                user.ukey,
+                user.username,
+                user.display_name,
+                user.icon_url,
+                user.credential_id,
+                user.pub_key,
+                user.sign_count,
+                user.rp_id)
+            webauthn_user_list.append(webauthn_user)
     
     webauthn_assertion_options = webauthn.WebAuthnAssertionOptions(
         webauthn_user_list,
-        challenge)
+        challenge,
+        RP_ID)
 
     return jsonify(webauthn_assertion_options.assertion_dict)
 
@@ -262,8 +263,8 @@ def verify_assertion():
 
     user = Users.query.filter_by(credential_id=credential_id).first()
     if not user:
-        app.logger.debug('User does not exist.')
-        return make_response(jsonify({'fail': 'User does not exist.'}), 401)
+        app.logger.debug('User does not found by Credential ID.')
+        return make_response(jsonify({'fail': 'User does not found by Credential ID.'}), 401)
 
     webauthn_user = webauthn.WebAuthnUser(
         user.ukey,
@@ -407,6 +408,7 @@ def set_options():
     attestationAllowCredentials = request.form.get('attestationAllowCredentials')
     attestationExcludeCredentials = request.form.get('attestationExcludeCredentials')
     attestationExtensions = request.form.get('attestationExtensions', None)
+    enableAssertionAllowCredentials = request.form.get('enableAssertionAllowCredentials')
     assertionAllowCredentials = request.form.get('assertionAllowCredentials')
     assertionExtensions = request.form.get('assertionExtensions', None)
 
@@ -445,10 +447,13 @@ def set_options():
                 if len(item) == 2:
                     tmp_dict[item[0]] = item[1]
             if len(tmp_dict) == len(attestationExtensions.splitlines()):
-                print(tmp_dict)
                 options.attestationExtensions = tmp_dict
             else:
                 return jsonify({'fail': 'Option Format Error (attestationExtensions).'})
+        if enableAssertionAllowCredentials in webauthn.WebAuthnOptions.SUPPORTED_ENABLE_CREDENTIALS:
+            options.enableAssertionAllowCredentials = enableAssertionAllowCredentials
+        else:
+            return jsonify({'fail': 'Option Selection Error (enableAssertionAllowCredentials).'})
         if set(assertionAllowCredentials.split(' ')).issubset(webauthn.WebAuthnOptions.SUPPORTED_TRANSPORTS) or assertionAllowCredentials == '':
             options.assertionAllowCredentials = assertionAllowCredentials.split(' ')
         else:
