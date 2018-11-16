@@ -105,6 +105,177 @@ class WebAuthnTools(object):
     def format_user_pubkey(self, pub_key):
         return _encodeToJWK_public_key(_webauthn_b64_decode(pub_key))
 
+    def view_attestation(self, response):
+        credential_id = response.get('id')
+        raw_id = response.get('rawId')
+        attestation_object = response.get('attObj')
+        registrationClientExtensions = response.get('registrationClientExtensions')
+        rce = json.loads(registrationClientExtensions)
+
+        decoded_clientdata = _webauthn_b64_decode(response.get('clientData', '').decode('utf-8'))
+        clientdata = json.loads(decoded_clientdata)
+
+        att_obj = cbor2.loads(_webauthn_b64_decode(attestation_object))
+        att_stmt = att_obj.get('attStmt')
+        auth_data = att_obj.get('authData')
+        fmt = att_obj.get('fmt')
+
+        auth_data_rp_id_hash = _get_auth_data_rp_id_hash(auth_data)
+        flags = struct.unpack('!B', auth_data[32])[0]
+        flags_dict = []
+        if (flags & const.USER_PRESENT) == 0x01:
+            flags_dict.append('UP')
+        if (flags & const.USER_VERIFIED) == 0x04:
+            flags_dict.append('UV')
+        if (flags & const.ATTESTATION_DATA_INCLUDED) == 0x40:
+            flags_dict.append('AT')
+        if (flags & const.EXTENSION_DATA_INCLUDED) == 0x80:
+            flags_dict.append('ED')
+
+        sc = auth_data[33:37]
+        sign_count = struct.unpack('!I', sc)[0]
+
+        attestation_data = auth_data[37:]
+        aaguid = attestation_data[:16]
+        credential_id_len = struct.unpack('!H', attestation_data[16:18])[0]
+        cred_id = attestation_data[18:18 + credential_id_len]
+        credential_pub_key = attestation_data[18 + credential_id_len:]
+
+        cpk = cbor2.loads(credential_pub_key)
+
+        cpk_dict = {}
+        for k, v in cpk.items():
+            if(isinstance(v, str)):
+                cpk_dict[k] = _webauthn_b64_encode(v)
+            else:
+                cpk_dict[k] = v
+
+        if fmt == 'packed':
+            alg = att_stmt['alg']
+            signature = att_stmt['sig']
+            if 'x5c' in att_stmt:
+                att_cert = att_stmt.get('x5c')[0]
+                x509_att_cert = load_der_x509_certificate(att_cert, default_backend())
+
+            elif 'ecdaaKeyId' in att_stmt:
+                ecdaaKeyId = att_stmt.get['ecdaaKeyId']
+
+            else:
+                attestation_type = AT_SELF_ATTESTATION
+
+            attStmt = {
+                'alg' : alg,
+                'sig' : _webauthn_b64_encode(signature)
+            }
+            if 'x5c' in att_stmt:
+                attStmt['x5c'] = x509_att_cert.public_bytes(Encoding.PEM)
+            elif 'ecdaaKeyId' in att_stmt:
+                attStmt['ecdaaKeyId'] = _webauthn_b64_encode(ecdaaKeyId)
+        
+        elif fmt == 'android-safetynet':
+            api_ver = att_stmt['ver']
+            api_response = att_stmt['response']
+
+            res_header_encoded, res_payload_encoded, res_sig = api_response.split('.')
+            res_header_decoded = _webauthn_b64_decode(res_header_encoded)
+            res_payload_decoded = _webauthn_b64_decode(res_payload_encoded)
+
+            attestation_type = AT_BASIC
+
+            attStmt = {
+                'ver' : api_ver,
+                'response' : {'header': json.loads(res_header_decoded), 'payload': json.loads(res_payload_decoded), 'sig': res_sig}
+            }
+        
+        elif fmt == 'fido-u2f': #sig, x5c
+            signature = att_stmt['sig']
+            att_cert = att_stmt.get('x5c')[0]
+            x509_att_cert = load_der_x509_certificate(att_cert, default_backend())
+
+            attestation_type = AT_BASIC
+
+            attStmt = {
+                'sig' : _webauthn_b64_encode(signature),
+                'x5c' : x509_att_cert.public_bytes(Encoding.PEM)
+            }
+
+        elif fmt == 'none':
+            attestation_type = AT_NONE
+
+            attStmt = att_stmt
+        else:
+            attStmt = att_stmt
+
+        return {
+            'id' : credential_id,
+            'rawId' : raw_id,
+            "response" : {
+                'clientDataJSON' : clientdata,
+                'attestationObject' : {
+                    'fmt' : fmt,
+                    'attStmt' : attStmt,
+                    'authenticatorData' : {
+                        'rpIdHashk' : _webauthn_b64_encode(auth_data_rp_id_hash),
+                        'flags' : flags_dict,
+                        'signCount' : sign_count,
+                        'attestedCredentialData' : {
+                            'aaguid' : codecs.encode(aaguid, 'hex_codec'),
+                            'credentialIdLength' : credential_id_len,
+                            'credentialId' : _webauthn_b64_encode(cred_id),
+                            'credentialPublicKey' : cpk_dict
+                        },
+                        'extensions' : rce
+                    }
+                }
+            }
+        }
+    
+    def view_assertion(self, response):
+        credential_id = response.get('id')
+        raw_id = response.get('rawId')
+        user_handle = response.get('userHandle', '')
+        sig = response.get('signature').decode('hex')
+        assertion_client_extensions = response.get('assertionClientExtensions')
+        ace = json.loads(assertion_client_extensions)
+
+        decoded_clientdata = _webauthn_b64_decode(response.get('clientData', '').decode('utf-8'))
+        clientdata = json.loads(decoded_clientdata)
+
+        auth_data = response.get('authData')
+        decoded_auth_data = _webauthn_b64_decode(auth_data)
+        
+        auth_data_rp_id_hash = _get_auth_data_rp_id_hash(decoded_auth_data)
+        flags = struct.unpack('!B', decoded_auth_data[32])[0]
+        flags_dict = []
+        if (flags & const.USER_PRESENT) == 0x01:
+            flags_dict.append('UP')
+        if (flags & const.USER_VERIFIED) == 0x04:
+            flags_dict.append('UV')
+        if (flags & const.ATTESTATION_DATA_INCLUDED) == 0x40:
+            flags_dict.append('AT')
+        if (flags & const.EXTENSION_DATA_INCLUDED) == 0x80:
+            flags_dict.append('ED')
+
+        sc = decoded_auth_data[33:37]
+        sign_count = struct.unpack('!I', sc)[0]
+
+        return {
+            'id' : credential_id,
+            'rawId' : raw_id,
+            "response" : {
+                'clientDataJSON' : clientdata,
+                'authenticatorData' : {
+                    'rpIdHash' : _webauthn_b64_encode(auth_data_rp_id_hash),
+                    'flags' : flags_dict,
+                    'signCount' : sign_count,
+                    'extensions' : ace
+                },
+                'signature' : _webauthn_b64_encode(sig),
+                'userHandle' : user_handle
+            }
+        }
+
+
 class WebAuthnOptions(object):
 
     _options_filename = os.path.join(os.path.dirname(os.path.abspath(__name__)), 'webauthnOptions.json')
@@ -586,139 +757,6 @@ class WebAuthnRegistrationResponse(object):
         self.none_attestation_permitted = none_attestation_permitted
 
         self.debug_log = []
-
-    def view(self):
-        credential_id = self.registration_response.get('id')
-        raw_id = self.registration_response.get('rawId')
-        attestation_object = self.registration_response.get('attObj')
-        registrationClientExtensions = self.registration_response.get('registrationClientExtensions')
-        rce = json.loads(registrationClientExtensions)
-
-        decoded_clientdata = _webauthn_b64_decode(self.registration_response.get('clientData', '').decode('utf-8'))
-        clientdata = json.loads(decoded_clientdata)
-
-        att_obj = cbor2.loads(_webauthn_b64_decode(attestation_object))
-        att_stmt = att_obj.get('attStmt')
-        auth_data = att_obj.get('authData')
-        fmt = att_obj.get('fmt')
-
-        auth_data_rp_id_hash = _get_auth_data_rp_id_hash(auth_data)
-        flags = struct.unpack('!B', auth_data[32])[0]
-        flags_dict = []
-        if (flags & const.USER_PRESENT) == 0x01:
-            flags_dict.append('UP')
-        if (flags & const.USER_VERIFIED) == 0x04:
-            flags_dict.append('UV')
-        if (flags & const.ATTESTATION_DATA_INCLUDED) == 0x40:
-            flags_dict.append('AT')
-        if (flags & const.EXTENSION_DATA_INCLUDED) == 0x80:
-            flags_dict.append('ED')
-
-        sc = auth_data[33:37]
-        sign_count = struct.unpack('!I', sc)[0]
-
-        attestation_data = auth_data[37:]
-        aaguid = attestation_data[:16]
-        credential_id_len = struct.unpack('!H', attestation_data[16:18])[0]
-        cred_id = attestation_data[18:18 + credential_id_len]
-        credential_pub_key = attestation_data[18 + credential_id_len:]
-
-        cpk = cbor2.loads(credential_pub_key)
-
-        cpk_dict = {}
-        for k, v in cpk.items():
-            if(isinstance(v, str)):
-                cpk_dict[k] = _webauthn_b64_encode(v)
-            else:
-                cpk_dict[k] = v
-
-        if fmt == 'packed':
-            alg = att_stmt['alg']
-            signature = att_stmt['sig']
-            if 'x5c' in att_stmt:
-                att_cert = att_stmt.get('x5c')[0]
-                x509_att_cert = load_der_x509_certificate(att_cert, default_backend())
-
-            elif 'ecdaaKeyId' in att_stmt:
-                ecdaaKeyId = att_stmt.get['ecdaaKeyId']
-
-                attestation_type = AT_ECDAA
-                trust_path = [] # TODO: ECDAA trust chain.
-
-            else:
-                attestation_type = AT_SELF_ATTESTATION
-                trust_path = []
-
-            attStmt = {
-                'alg' : alg,
-                'sig' : _webauthn_b64_encode(signature)
-            }
-            if 'x5c' in att_stmt:
-                attStmt['x5c'] = x509_att_cert.public_bytes(Encoding.PEM)
-            elif 'ecdaaKeyId' in att_stmt:
-                attStmt['ecdaaKeyId'] = _webauthn_b64_encode(ecdaaKeyId)
-        
-        elif fmt == 'android-safetynet':
-            api_ver = att_stmt['ver']
-            api_response = att_stmt['response']
-
-            res_header_encoded, res_payload_encoded, res_sig = api_response.split('.')
-            res_header_decoded = _webauthn_b64_decode(res_header_encoded)
-            res_payload_decoded = _webauthn_b64_decode(res_payload_encoded)
-
-            attestation_type = AT_BASIC
-            trust_path = [] # TODO:
-
-            attStmt = {
-                'ver' : api_ver,
-                'response' : {'header': json.loads(res_header_decoded), 'payload': json.loads(res_payload_decoded), 'sig': res_sig}
-            }
-        
-        elif fmt == 'fido-u2f': #sig, x5c
-            signature = att_stmt['sig']
-            att_cert = att_stmt.get('x5c')[0]
-            x509_att_cert = load_der_x509_certificate(att_cert, default_backend())
-
-            attestation_type = AT_BASIC
-            trust_path = [x509_att_cert]
-
-            attStmt = {
-                'sig' : _webauthn_b64_encode(signature),
-                'x5c' : x509_att_cert.public_bytes(Encoding.PEM)
-            }
-
-        elif fmt == 'none':
-            attestation_type = AT_NONE
-            trust_path = []
-
-            attStmt = att_stmt
-        else:
-            attStmt = att_stmt
-            self.addLog('Unable to verify attestation statement format ({}).'.format(fmt))
-
-        return {
-            'id' : credential_id,
-            'rawId' : raw_id,
-            "response" : {
-                'clientDataJSON' : clientdata,
-                'attestationObject' : {
-                    'fmt' : fmt,
-                    'attStmt' : attStmt,
-                    'authenticatorData' : {
-                        'rpIdHashk' : _webauthn_b64_encode(auth_data_rp_id_hash),
-                        'flags' : flags_dict,
-                        'signCount' : sign_count,
-                        'attestedCredentialData' : {
-                            'aaguid' : codecs.encode(aaguid, 'hex_codec'),
-                            'credentialIdLength' : credential_id_len,
-                            'credentialId' : _webauthn_b64_encode(cred_id),
-                            'credentialPublicKey' : cpk_dict
-                        },
-                        'extensions' : rce
-                    }
-                }
-            }
-        }
 
     def _verify_attestation_statement(self, fmt, att_stmt, auth_data, client_data_hash):
         '''Verification procedure: The procedure for verifying an attestation statement,
@@ -1377,53 +1415,6 @@ class WebAuthnAssertionResponse(object):
         self.uv_required = uv_required
 
         self.debug_log = []
-
-
-    def view(self):
-        credential_id = self.assertion_response.get('id')
-        raw_id = self.assertion_response.get('rawId')
-        user_handle = self.assertion_response.get('userHandle', '')
-        sig = self.assertion_response.get('signature').decode('hex')
-        assertion_client_extensions = self.assertion_response.get('assertionClientExtensions')
-        ace = json.loads(assertion_client_extensions)
-
-        decoded_clientdata = _webauthn_b64_decode(self.assertion_response.get('clientData', '').decode('utf-8'))
-        clientdata = json.loads(decoded_clientdata)
-
-        auth_data = self.assertion_response.get('authData')
-        decoded_auth_data = _webauthn_b64_decode(auth_data)
-        
-        auth_data_rp_id_hash = _get_auth_data_rp_id_hash(decoded_auth_data)
-        flags = struct.unpack('!B', decoded_auth_data[32])[0]
-        flags_dict = []
-        if (flags & const.USER_PRESENT) == 0x01:
-            flags_dict.append('UP')
-        if (flags & const.USER_VERIFIED) == 0x04:
-            flags_dict.append('UV')
-        if (flags & const.ATTESTATION_DATA_INCLUDED) == 0x40:
-            flags_dict.append('AT')
-        if (flags & const.EXTENSION_DATA_INCLUDED) == 0x80:
-            flags_dict.append('ED')
-
-        sc = decoded_auth_data[33:37]
-        sign_count = struct.unpack('!I', sc)[0]
-
-        return {
-            'id' : credential_id,
-            'rawId' : raw_id,
-            "response" : {
-                'clientDataJSON' : clientdata,
-                'authenticatorData' : {
-                    'rpIdHash' : _webauthn_b64_encode(auth_data_rp_id_hash),
-                    'flags' : flags_dict,
-                    'signCount' : sign_count,
-                    'extensions' : ace
-                },
-                'signature' : _webauthn_b64_encode(sig),
-                'userHandle' : user_handle
-            }
-        }
-
 
     def verify(self):
         print('----- verify -----')

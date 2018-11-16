@@ -202,8 +202,9 @@ def verify_credential_info():
 
     try:
         webauthn_registration_response.addLog('----- [Registration] Authenticator Response (Decoded) from Authenticator/Client -----')
-        attestation_response = webauthn_registration_response.view()
-        webauthn_registration_response.addLog(json.dumps(attestation_response, indent=4))
+        webauthn_tools = webauthn.WebAuthnTools()
+        decoded_attestation_response = webauthn_tools.view_attestation(registration_response)
+        webauthn_registration_response.addLog(json.dumps(decoded_attestation_response, indent=4))
         webauthn_registration_response.addLog('----- End -----')
     except Exception as e:
         app.logger.debug('Attestation view failed. Error: {}'.format(e))
@@ -288,8 +289,9 @@ def verify_assertion():
 
     try:
         webauthn_assertion_response.addLog('----- [Log-in] Authenticator Response (Decoded) from Authenticator/Client -----')
-        assersion_response = webauthn_assertion_response.view()
-        webauthn_assertion_response.addLog(json.dumps(assersion_response, indent=4))
+        webauthn_tools = webauthn.WebAuthnTools()
+        decoded_assertion_response = webauthn_tools.view_assertion(assertion_response)
+        webauthn_assertion_response.addLog(json.dumps(decoded_assertion_response, indent=4))
         webauthn_assertion_response.addLog('----- End -----')
     except Exception as e:
         app.logger.debug('Assertion view failed. Error: {}'.format(e))
@@ -319,69 +321,30 @@ def verify_assertion():
 
 @app.route('/view/attestation', methods=['POST'])
 def view_attestation():
-    challenge = session['challenge']
-
     registration_response = request.form
-    trust_anchor_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), TRUST_ANCHOR_DIR)
-    trusted_attestation_cert_required = True
-    self_attestation_permitted = True
-    none_attestation_permitted = True
-
-    webauthn_registration_response = webauthn.WebAuthnRegistrationResponse(
-        RP_ID,
-        ORIGIN,
-        registration_response,
-        challenge,
-        trust_anchor_dir,
-        trusted_attestation_cert_required,
-        self_attestation_permitted,
-        none_attestation_permitted,
-        uv_required=False)  # User Verification
 
     try:
-        attestation_response = webauthn_registration_response.view()
+        webauthn_tools = webauthn.WebAuthnTools()
+        decoded_attestation_response = webauthn_tools.view_attestation(registration_response)
     except Exception as e:
-        app.logger.debug('Registration failed. Error: {}'.format(e))
-        return jsonify({'fail': 'Registration failed. Error: {}'.format(e), 'debug_log': webauthn_registration_response.getLog()})
+        app.logger.debug('View Attestation Response failed. Error: {}'.format(e))
+        return jsonify({'fail': 'View Attestation Response failed. Error: {}'.format(e)})
 
-    return jsonify(attestation_response)
+    return jsonify(decoded_attestation_response)
 
 
 @app.route('/view/assertion', methods=['POST'])
 def view_assertion():
-    challenge = session.get('challenge')
     assertion_response = request.form
-    credential_id = assertion_response.get('id')
-
-    user = Users.query.filter_by(credential_id=credential_id).first()
-    if not user:
-        return make_response(jsonify({'fail': 'User does not exist.'}), 401)
-
-    webauthn_user = webauthn.WebAuthnUser(
-        user.ukey,
-        user.username,
-        user.display_name,
-        user.icon_url,
-        user.credential_id,
-        user.pub_key,
-        user.sign_count,
-        user.rp_id)
-
-    webauthn_assertion_response = webauthn.WebAuthnAssertionResponse(
-        webauthn_user,
-        assertion_response,
-        challenge,
-        ORIGIN,
-        allow_credentials=None,
-        uv_required=False)  # User Verification
 
     try:
-        webauthn_assertion = webauthn_assertion_response.view()
+        webauthn_tools = webauthn.WebAuthnTools()
+        decoded_assertion_response = webauthn_tools.view_assertion(assertion_response)
     except Exception as e:
         app.logger.debug('Assertion failed. Error: {}'.format(e))
         return jsonify({'fail': 'Assertion failed. Error: {}'.format(e), 'debug_log': webauthn_assertion_response.getLog()})
 
-    return jsonify(webauthn_assertion)
+    return jsonify(decoded_assertion_response)
 
 
 @app.route('/options', methods=['GET'])
