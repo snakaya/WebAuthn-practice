@@ -7,5 +7,6 @@ from .webauthn import WebAuthnRegistrationResponse
 from .webauthn import WebAuthnUser
 from .webauthn import WebAuthnTools
 from .webauthn import WebAuthnOptions
+from .webauthn import WebAuthnLogger
 
 __version__ = '0.8'
