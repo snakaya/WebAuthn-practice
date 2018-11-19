@@ -11,7 +11,7 @@ The app outputs and records logs of Attestation and Assertion's Response and Opt
 If you are WebAuthn/FIDO2 developer, Their output and logs are useful well.
 
 ## Feature
-* Registration(Attestation) and Log-in(Assertion).
+* Registration(Attestation) and Authentication(Assertion).
     * Support Attestation Statement Type ('packed', 'android-saftynet', 'fido-u2f' and 'none').
     * Support signature algorithm EC256 and RS256.
 * Register users with credential info.
@@ -41,7 +41,7 @@ Please refer under sample directory.
         * TouchID
         * YubiKey
         * FIDO U2F Security Key
-* Android >= Nuger
+* Android >= N
     * *Browser*
         * Chrome >= 70
     * *Devices*
@@ -67,5 +67,5 @@ Please refer under sample directory.
 ## License
 [BSD-3-Clause](https://raw.githubusercontent.com/snakaya/WebAuthn-practice/master/LICENSE)
 
-
-
+## Author
+Seiji Nakaya / LOOSEDAYS (snakaya-+-loosedays.jp)
