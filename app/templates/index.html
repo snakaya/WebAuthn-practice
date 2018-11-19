@@ -602,7 +602,7 @@
                 makeCredentialOptions.user.id = Uint8Array.from(atob(makeCredentialOptions.user.id), c => c.charCodeAt(0));
                 try{
                     navigator.credentials.create({ publicKey: makeCredentialOptions })
-                        .then(async function(newCredential) {
+                        .then(function(newCredential) {
                             console.log(newCredential);
                             stringlyNewCredential = stringlyAttestationPublicKeyCredential(newCredential);
                             addLog('----- Authenticator Response -----');
@@ -610,7 +610,7 @@
                             addLog('----------');
                             // Send new credential info to server for
                             // verification and registration.
-                            await registerNewCredential(newCredential, stringlyNewCredential);
+                            registerNewCredential(newCredential, stringlyNewCredential);
                         }).then(() => {
                             addLog('===== Registration End =====');
                         }).catch(function(e) {
