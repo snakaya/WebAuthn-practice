@@ -20,7 +20,7 @@
         <div class="collapse navbar-collapse" id="navbarNav">
             <ul class="navbar-nav mr-auto">
                 <li class="nav-item">
-                    <a class="nav-link active" href="#" id="rlLink">Register&amp;Log-in</a>
+                    <a class="nav-link active" href="#" id="rlLink">Register&amp;Authn</a>
                 </li>
                 <li class="nav-item">
                     <a class="nav-link" href="#" id="usersLink">Users</a>
@@ -59,7 +59,7 @@
         </div>
 
         <div class="container rlPanel" id="rlModal">
-            <form name="register" method="get">
+            <form name="registerform" method="get">
                 <h2 class="text-center">Register</h2>
                 <div class="form-group">
                     <label for="register_username">Username</label>
@@ -69,15 +69,15 @@
                     <label for="register_display_name">Display Name</label>
                     <input type="text" class="form-control" id="register_display_name" name="register_display_name" placeholder="(Required when registration) Enter Display Name">
                 </div>
-                <button id="register" type="submit" class="btn btn-primary btn-lg btn-block">Register with WebAuthn</button>
+                <button id="registerBtn" type="submit" class="btn btn-primary btn-lg btn-block">Register with WebAuthn</button>
             </form>
-            <form name="login" method="get">
-                <h2 class="text-center">Log-In</h2>
+            <form name="authnform" method="get">
+                <h2 class="text-center">Authentication</h2>
                 <div class="form-group">
-                    <label for="login_username">Username</label>
-                    <input type="text" class="form-control" id="login_username" name="login_username" placeholder="Enter Login UserName">
+                    <label for="authn_username">Username</label>
+                    <input type="text" class="form-control" id="authn_username" name="authn_username" placeholder="Enter UserName">
                 </div>
-                <button id="login" type="submit" class="btn btn-primary btn-lg btn-block">Log-in with WebAuthn</button>
+                <button id="authnBtn" type="submit" class="btn btn-primary btn-lg btn-block">Authentication with WebAuthn</button>
             </form>
             <form id="log-output-form">
                 <a href="#" id="clearlogLink"><svg id="clearlogIcon" class="clearIcon float-right" xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24"><path fill="none" d="M0 0h24v24H0V0z"/><path d="M16 9v10H8V9h8m-1.5-6h-5l-1 1H5v2h14V4h-3.5l-1-1zM18 7H6v12c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7z"/></svg></a>
@@ -89,7 +89,7 @@
         </div>
 
         <div class="container usersPanel" id="usersModal" style="display: none;">
-            <a href="#" id="clearUsersLink"><svg id="clearUsersIcon" class="clearIcon float-right" xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24"><path fill="none" d="M0 0h24v24H0V0z"/><path d="M16 9v10H8V9h8m-1.5-6h-5l-1 1H5v2h14V4h-3.5l-1-1zM18 7H6v12c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7z"/></svg></a>
+            <a href="#" id="clearUsersLink" class="text-light disabled" disabled><svg id="clearUsersIcon" class="clearIcon float-right" xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24"><path fill="none" d="M0 0h24v24H0V0z"/><path d="M16 9v10H8V9h8m-1.5-6h-5l-1 1H5v2h14V4h-3.5l-1-1zM18 7H6v12c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7z"/></svg></a>
             <h2 class="text-center">Registered Users</h2>
             <div class="table-responsive"></div>
                 <table class="table table-hover" style="table-layout:fixed;width:100%;">
@@ -103,7 +103,7 @@
                     <thead class="thead-light">
                         <tr class="text-center">
                             <th scope="col">
-                                <i class="checkIcon material-icons text-primary">check_box_outline_blank</i>
+                                <i class="checkIcon material-icons text-light disabled">check_box_outline_blank</i>
                             </th>
                             <th scope="col">#</th>
                             <th scope="col">User Name</th>
@@ -217,11 +217,11 @@
             <form name="fastview">
                 <div class="form-group">
                     <label for="view_username">Username</label>
-                    <input type="text" class="form-control" id="view_username" name="view_username" placeholder="(Required when assertion) Enter UserName">
+                    <input type="text" class="form-control" id="view_username" name="view_username" placeholder="(Required When Authentication) Enter UserName">
                 </div>
                 <div class="mx-auto d-inline" role="group" aria-label="view buttons">
-                    <button id="view_attestaion" type="button" class="btn btn-primary btn-lg btn-inline">Attestation</button>
-                    <button id="view_assertion" type="button" class="btn btn-primary btn-lg btn-inline">Assertion</button>
+                    <button id="view_attestaion" type="button" class="btn btn-primary btn-lg btn-inline">Registration</button>
+                    <button id="view_assertion" type="button" class="btn btn-primary btn-lg btn-inline">Authentication</button>
                 </div>
                 <div class="form-group mt-2">
                         <a href="#" id="clearViewlogLink"><svg id="clearViewlogIcon" class="clearIcon float-right" xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24"><path fill="none" d="M0 0h24v24H0V0z"/><path d="M16 9v10H8V9h8m-1.5-6h-5l-1 1H5v2h14V4h-3.5l-1-1zM18 7H6v12c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7z"/></svg></a>
@@ -574,7 +574,7 @@
             $('#erralert').addClass('d-none');
         });
 
-        $("#register").click(function(e) {
+        $("#registerBtn").click(function(e) {
             e.preventDefault();
             var username = $('input[name="register_username"]').val();
             var displayName = $('input[name="register_display_name"]').val();
@@ -656,11 +656,11 @@
             });
         });
 
-        $("#login").click(function(e) {
+        $("#authnBtn").click(function(e) {
             e.preventDefault();
-            var username = $('input[name="login_username"]').val();
+            var username = $('input[name="authn_username"]').val();
 
-            addLog('\n===== Log-in Start =====');
+            addLog('\n===== Authentication Start =====');
             $.post("/webauthn_begin_assertion", {
                 username: username
             }).done(function(assertionOptions) {
@@ -693,7 +693,7 @@
                             addLog('----------');
                             // Send assertion to server for verification.
                             verifyAssertion(assertedCredential);
-                            addLog('===== Log-in End =====');
+                            addLog('===== Authentication End =====');
                         }).catch(function(e) {
                             // No acceptable authenticator or user refused
                             // consent. Handle appropriately.
@@ -709,7 +709,7 @@
                                 $('#errmsg').text(e.responseJSON.fail);
                                 $('#erralert').removeClass('d-none');
                             }
-                            addLog('===== Log-in End =====');
+                            addLog('===== Authentication End =====');
                         });
                 } catch(e) {
                     console.log("Error navigator.credentials.get.");
@@ -721,7 +721,7 @@
                         $('#errmsg').text(e.message);
                         $('#erralert').removeClass('d-none');
                     }
-                    addLog('===== Log-in End =====');
+                    addLog('===== Authentication End =====');
                 };
             }).catch(function(e) {
                 console.log("Error Making assertion oprions.");
@@ -733,7 +733,7 @@
                     $('#errmsg').text(e.responseJSON.fail);
                     $('#erralert').removeClass('d-none');
                 }
-                addLog('===== Log-in End1 =====');
+                addLog('===== Authentication End1 =====');
             });
         });
 
@@ -965,7 +965,7 @@
                         $('#erralert').removeClass('d-none');
                     } else {
                         for(let u of data.users) {
-                            $("#usersTable").append('<tr><td class="text-center"><i class="checkIcon material-icons text-primary" data-userno="' + u.id + '">check_box_outline_blank</i></td><td class="text-center"><a href="#" class="userDetailLink" data-userno="' + u.id + '">' + u.id + '</a></td><td>' + u.username + '</td><td>' + u.display_name + '</td><td>' + u.credential_id + '</td></tr>');
+                            $("#usersTable").append('<tr><td class="text-center"><i class="checkIcon material-icons text-light disabled" data-userno="' + u.id + '">check_box_outline_blank</i></td><td class="text-center"><a href="#" class="userDetailLink" data-userno="' + u.id + '">' + u.id + '</a></td><td>' + u.username + '</td><td>' + u.display_name + '</td><td>' + u.credential_id + '</td></tr>');
                         }
                     }
                 }).fail(function( jqXHR, textStatus, errorThrown ) {
