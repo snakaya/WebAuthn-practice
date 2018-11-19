@@ -17,13 +17,17 @@ from cryptography.hazmat.primitives.asymmetric.ec import ECDSA, EllipticCurvePub
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicKey, RSAPublicNumbers
 from cryptography.hazmat.primitives.asymmetric.padding import PKCS1v15
 from cryptography.hazmat.primitives.hashes import SHA256
-from cryptography.x509 import load_der_x509_certificate
+from cryptography.x509 import ObjectIdentifier, load_der_x509_certificate
 from cryptography.hazmat.primitives.serialization import Encoding
 from OpenSSL import crypto
 
 #import const
 from . import const
 
+
+#
+# Const for classes
+#
 
 # REF: https://www.iana.org/assignments/cose/cose.xhtml
 # COSE Key Name
@@ -50,7 +54,10 @@ COSE_ALG_ES256_Y = -3
 COSE_ALG_RS256_N = -1
 COSE_ALG_RS256_E = -2
 
+# X5C Certificate OID
+OID_AAGUID = '1.3.6.1.4.1.45724.1.1.4'
 
+# Attestation Types
 AT_BASIC = 'Basic'
 AT_ECDAA = 'ECDAA'            # Not supported now.
 AT_NONE = 'None'
@@ -836,15 +843,31 @@ class WebAuthnRegistrationResponse(object):
 
                 # Step 1-3.
                 #
-                # TODO: If attestnCert contains an extension with OID 1.3.6.1.4.1.45724.1.1.4 (id-fido-gen-ce-aaguid)
+                #  If attestnCert contains an extension with OID 1.3.6.1.4.1.45724.1.1.4 (id-fido-gen-ce-aaguid)
                 #  verify that the value of this extension matches the aaguid in authenticatorData.
+                attestation_data = auth_data[37:]
+                aaguid = attestation_data[:16]
+
+                try:
+                    # TODO:
+                    # [Hacked] Why certificate attribute's length is 18 (aaguid should be 16byte) and has '\x04\x10' into begging part? What's mean??
+                    cert_attrib_value = x509_att_cert.extensions.get_extension_for_oid(ObjectIdentifier(OID_AAGUID)).value.value
+                    if len(cert_attrib_value) == 18:
+                        cert_attrib_value = cert_attrib_value[2:]
+                    elif len(cert_attrib_value) == 16:
+                        self.logger.add('Certificate attribute value length is not 16bytes.')
+                        raise RegistrationRejectedException('Certificate attribute value length is not 16bytes.')
+                    if codecs.encode(cert_attrib_value, 'hex_codec') != codecs.encode(aaguid, 'hex_codec'):
+                        self.logger.add('Certificate attribute value is not match to AAGUID.')
+                        raise RegistrationRejectedException('Certificate attribute value is not match to AAGUID.')
+                except Exception as e:
+                    self.logger.add('Certificate verify failed. Error: {}'.format(e))
+                    raise e
 
                 # Step 1-4.
                 #
                 # If successful, return attestation type Basic with the
                 # attestation trust path set to x5c.
-                attestation_data = auth_data[37:]
-                aaguid = attestation_data[:16]
                 credential_id_len = struct.unpack('!H', attestation_data[16:18])[0]
                 cred_id = attestation_data[18:18 + credential_id_len]
                 credential_pub_key = attestation_data[18 + credential_id_len:]
