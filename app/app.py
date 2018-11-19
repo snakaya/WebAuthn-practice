@@ -170,6 +170,8 @@ def webauthn_begin_assertion():
 @app.route('/verify_credential_info', methods=['POST'])
 def verify_credential_info():
 
+    logger = webauthn.WebAuthnLogger()
+
     app.logger.debug('----- [Registration] Authenticator Response (Native) from Authenticator/Client -----')
     app.logger.debug(str(request.form.to_dict()))
     app.logger.debug('----- End -----')
@@ -198,27 +200,27 @@ def verify_credential_info():
         none_attestation_permitted,
         uv_required=False)  # User Verification
 
-    webauthn_registration_response.addLog('----- [Registration] Server Received Data -----')
+    logger.add('----- [Registration] Server Received Data -----')
 
     try:
-        webauthn_registration_response.addLog('----- [Registration] Authenticator Response (Decoded) from Authenticator/Client -----')
+        logger.add('----- [Registration] Authenticator Response (Decoded) from Authenticator/Client -----')
         webauthn_tools = webauthn.WebAuthnTools()
         decoded_attestation_response = webauthn_tools.view_attestation(registration_response)
-        webauthn_registration_response.addLog(json.dumps(decoded_attestation_response, indent=4))
-        webauthn_registration_response.addLog('----- End -----')
+        logger.add(json.dumps(decoded_attestation_response, indent=4))
+        logger.add('----- End -----')
     except Exception as e:
         app.logger.debug('Attestation view failed. Error: {}'.format(e))
-        webauthn_registration_response.addLog('Attestation view failed. Error: {}'.format(e))
-        return jsonify({'fail': 'Attestation view failed. Error: {}'.format(e), 'debug_log': webauthn_registration_response.getLog()})
+        logger.add('Attestation view failed. Error: {}'.format(e))
+        return jsonify({'fail': 'Attestation view failed. Error: {}'.format(e), 'debug_log': logger.get()})
 
     try:
-        webauthn_registration_response.addLog('----- [Registration] [Verify] Start -----')
+        logger.add('----- [Registration] [Verify] Start -----')
         webauthn_credential = webauthn_registration_response.verify()
-        webauthn_registration_response.addLog('----- [Registration] [Verify] End   -----')
+        logger.add('----- [Registration] [Verify] End   -----')
     except Exception as e:
         app.logger.debug('Registration failed. Error: {}'.format(e))
-        webauthn_registration_response.addLog('Registration failed. Error: {}'.format(e))
-        return jsonify({'fail': 'Registration failed. Error: {}'.format(e), 'debug_log': webauthn_registration_response.getLog()})
+        logger.add('Registration failed. Error: {}'.format(e))
+        return jsonify({'fail': 'Registration failed. Error: {}'.format(e), 'debug_log': logger.get()})
 
     # Step 17.
     #
@@ -230,8 +232,8 @@ def verify_credential_info():
     credential_id_exists = Users.query.filter_by(credential_id=webauthn_credential.credential_id).first()
     if credential_id_exists:
         app.logger.debug('Credential ID already exists.')
-        webauthn_registration_response.addLog('Credential ID already exists.')
-        return make_response(jsonify({'fail': 'Credential ID already exists.', 'debug_log': webauthn_registration_response.getLog()}), 401)
+        logger.add('Credential ID already exists.')
+        return make_response(jsonify({'fail': 'Credential ID already exists.', 'debug_log': logger.get()}), 401)
 
     user = Users(
         ukey=ukey,
@@ -242,18 +244,20 @@ def verify_credential_info():
         sign_count=webauthn_credential.sign_count,
         att_option=att_option,
         response=stringlyResponse,
-        response_dec=json.dumps(attestation_response, indent=4),
+        response_dec=json.dumps(decoded_attestation_response, indent=4),
         rp_id=RP_ID,
         icon_url='https://example.com')
     db.session.add(user)
     db.session.commit()
 
-    webauthn_registration_response.addLog('----- [Registration] Server Successfully Return. -----')
-    return jsonify({'success': 'User ({}) successfully registered.'.format(username), 'debug_log': webauthn_registration_response.getLog()})
+    logger.add('----- [Registration] Server Successfully Return. -----')
+    return jsonify({'success': 'User ({}) successfully registered.'.format(username), 'debug_log': logger.get()})
 
 
 @app.route('/verify_assertion', methods=['POST'])
 def verify_assertion():
+    logger = webauthn.WebAuthnLogger()
+
     app.logger.debug('----- [Log-in] Authenticator Response (Native) from Authenticator/Client -----')
     app.logger.debug(str(request.form.to_dict()))
     app.logger.debug('----- End -----')
@@ -285,37 +289,37 @@ def verify_assertion():
         allow_credentials=None,
         uv_required=False)  # User Verification
 
-    webauthn_assertion_response.addLog('----- [Log-in] Received Data -----')
+    logger.add('----- [Log-in] Received Data -----')
 
     try:
-        webauthn_assertion_response.addLog('----- [Log-in] Authenticator Response (Decoded) from Authenticator/Client -----')
+        logger.add('----- [Log-in] Authenticator Response (Decoded) from Authenticator/Client -----')
         webauthn_tools = webauthn.WebAuthnTools()
         decoded_assertion_response = webauthn_tools.view_assertion(assertion_response)
-        webauthn_assertion_response.addLog(json.dumps(decoded_assertion_response, indent=4))
-        webauthn_assertion_response.addLog('----- End -----')
+        logger.add(json.dumps(decoded_assertion_response, indent=4))
+        logger.add('----- End -----')
     except Exception as e:
         app.logger.debug('Assertion view failed. Error: {}'.format(e))
-        webauthn_assertion_response.addLog('Attestation view failed. Error: {}'.format(e))
-        return jsonify({'fail': 'Attestation view failed. Error: {}'.format(e), 'debug_log': webauthn_assertion_response.getLog()})
+        logger.add('Attestation view failed. Error: {}'.format(e))
+        return jsonify({'fail': 'Attestation view failed. Error: {}'.format(e), 'debug_log': logger.get()})
 
     try:
-        webauthn_assertion_response.addLog('----- [Log-in] [Verify] Start -----')
+        logger.add('----- [Log-in] [Verify] Start -----')
         sign_count = webauthn_assertion_response.verify()
-        webauthn_assertion_response.addLog('----- [Log-in] [Verify] End   -----')
+        logger.add('----- [Log-in] [Verify] End   -----')
     except Exception as e:
         app.logger.debug('Assertion failed. Error: {}'.format(e))
-        webauthn_assertion_response.addLog('Assertion failed. Error: {}'.format(e))
-        return jsonify({'fail': 'Assertion failed. Error: {}'.format(e), 'debug_log': webauthn_assertion_response.getLog()})
+        logger.add('Assertion failed. Error: {}'.format(e))
+        return jsonify({'fail': 'Assertion failed. Error: {}'.format(e), 'debug_log': logger.get()})
 
     # Update counter.
     user.sign_count = sign_count
     db.session.add(user)
     db.session.commit()
 
-    webauthn_assertion_response.addLog('----- [Log-in] Server Successfully Return. -----')
+    logger.add('----- [Log-in] Server Successfully Return. -----')
     return jsonify({
         'success': u'Successfully logged in as {}'.format(user.username),
-        'debug_log': webauthn_assertion_response.getLog()
+        'debug_log': logger.get()
     })
 
 
@@ -341,8 +345,8 @@ def view_assertion():
         webauthn_tools = webauthn.WebAuthnTools()
         decoded_assertion_response = webauthn_tools.view_assertion(assertion_response)
     except Exception as e:
-        app.logger.debug('Assertion failed. Error: {}'.format(e))
-        return jsonify({'fail': 'Assertion failed. Error: {}'.format(e), 'debug_log': webauthn_assertion_response.getLog()})
+        app.logger.debug('View Assertion Response failed. Error: {}'.format(e))
+        return jsonify({'fail': 'View Assertion Response failed. Error: {}'.format(e)})
 
     return jsonify(decoded_assertion_response)
 
