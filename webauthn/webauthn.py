@@ -854,7 +854,7 @@ class WebAuthnRegistrationResponse(object):
                     cert_attrib_value = x509_att_cert.extensions.get_extension_for_oid(ObjectIdentifier(OID_AAGUID)).value.value
                     if len(cert_attrib_value) == 18:
                         cert_attrib_value = cert_attrib_value[2:]
-                    elif len(cert_attrib_value) == 16:
+                    elif len(cert_attrib_value) != 16:
                         self.logger.add('Certificate attribute value length is not 16bytes.')
                         raise RegistrationRejectedException('Certificate attribute value length is not 16bytes.')
                     if codecs.encode(cert_attrib_value, 'hex_codec') != codecs.encode(aaguid, 'hex_codec'):
