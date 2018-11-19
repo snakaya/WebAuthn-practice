@@ -21,14 +21,16 @@ from cryptography.x509 import ObjectIdentifier, load_der_x509_certificate
 from cryptography.hazmat.primitives.serialization import Encoding
 from OpenSSL import crypto
 
-#import const
-from . import const
-
-
 #
-# Const for classes
+# App Const for classes
 #
 
+# Authenticator data flags.
+# https://www.w3.org/TR/webauthn/#authenticator-data
+USER_PRESENT = 1 << 0
+USER_VERIFIED = 1 << 2
+ATTESTATION_DATA_INCLUDED = 1 << 6
+EXTENSION_DATA_INCLUDED = 1 << 7
 # REF: https://www.iana.org/assignments/cose/cose.xhtml
 # COSE Key Name
 COSE_KEYNAME_KTY = 1
@@ -53,43 +55,38 @@ COSE_ALG_ES256_X = -2
 COSE_ALG_ES256_Y = -3
 COSE_ALG_RS256_N = -1
 COSE_ALG_RS256_E = -2
-
 # X5C Certificate OID
 OID_AAGUID = '1.3.6.1.4.1.45724.1.1.4'
-
 # Attestation Types
 AT_BASIC = 'Basic'
 AT_ECDAA = 'ECDAA'            # Not supported now.
 AT_NONE = 'None'
 AT_ATTESTATION_CA = 'AttCA'   # Not supported now.
 AT_SELF_ATTESTATION = 'Self'
-
+# Supported Attestation Types now
 SUPPORTED_ATTESTATION_TYPES = (
     AT_BASIC,
     AT_NONE,
     AT_SELF_ATTESTATION
 )
-
+# Supported Attestation Types now
+# ('android-key', 'tpm' are not supported yet.)
 SUPPORTED_ATTESTATION_FORMATS = (
     'packed',
     'fido-u2f',
     'android-safetynet',
     'none',
 )
-
 # Trust anchors (trusted attestation roots directory).
 DEFAULT_TRUST_ANCHOR_DIR = 'trusted_attestation_roots'
-
 # Client data type.
 TYPE_CREATE = 'webauthn.create'
 TYPE_GET = 'webauthn.get'
-
 # Expected client extensions
 EXPECTED_CLIENT_EXTENSIONS = {
     #'appid': None,
     #'loc': None
 }
-
 # Expected authenticator extensions
 EXPECTED_AUTHENTICATOR_EXTENSIONS = {
 }
@@ -141,13 +138,13 @@ class WebAuthnTools(object):
         auth_data_rp_id_hash = _get_auth_data_rp_id_hash(auth_data)
         flags = struct.unpack('!B', auth_data[32])[0]
         flags_dict = []
-        if (flags & const.USER_PRESENT) == 0x01:
+        if (flags & USER_PRESENT) == 0x01:
             flags_dict.append('UP')
-        if (flags & const.USER_VERIFIED) == 0x04:
+        if (flags & USER_VERIFIED) == 0x04:
             flags_dict.append('UV')
-        if (flags & const.ATTESTATION_DATA_INCLUDED) == 0x40:
+        if (flags & ATTESTATION_DATA_INCLUDED) == 0x40:
             flags_dict.append('AT')
-        if (flags & const.EXTENSION_DATA_INCLUDED) == 0x80:
+        if (flags & EXTENSION_DATA_INCLUDED) == 0x80:
             flags_dict.append('ED')
 
         sc = auth_data[33:37]
@@ -265,13 +262,13 @@ class WebAuthnTools(object):
         auth_data_rp_id_hash = _get_auth_data_rp_id_hash(decoded_auth_data)
         flags = struct.unpack('!B', decoded_auth_data[32])[0]
         flags_dict = []
-        if (flags & const.USER_PRESENT) == 0x01:
+        if (flags & USER_PRESENT) == 0x01:
             flags_dict.append('UP')
-        if (flags & const.USER_VERIFIED) == 0x04:
+        if (flags & USER_VERIFIED) == 0x04:
             flags_dict.append('UV')
-        if (flags & const.ATTESTATION_DATA_INCLUDED) == 0x40:
+        if (flags & ATTESTATION_DATA_INCLUDED) == 0x40:
             flags_dict.append('AT')
-        if (flags & const.EXTENSION_DATA_INCLUDED) == 0x80:
+        if (flags & EXTENSION_DATA_INCLUDED) == 0x80:
             flags_dict.append('ED')
 
         sc = decoded_auth_data[33:37]
@@ -1227,7 +1224,7 @@ class WebAuthnRegistrationResponse(object):
             self.logger.add('----- [Registration] [Verify:Step10/11] Verify user verification flag. -----')
             flags = struct.unpack('!B', auth_data[32])[0]
 
-            if (self.uv_required and (flags & const.USER_VERIFIED) != 0x04):
+            if (self.uv_required and (flags & USER_VERIFIED) != 0x04):
                 self.logger.add('Malformed request received.')
                 raise RegistrationRejectedException('Malformed request received.')
 
@@ -1236,7 +1233,7 @@ class WebAuthnRegistrationResponse(object):
             # If user verification is not required for this registration,
             # verify that the User Present bit of the flags in authData
             # is set.
-            if (not self.uv_required and (flags & const.USER_PRESENT) != 0x01):
+            if (not self.uv_required and (flags & USER_PRESENT) != 0x01):
                 self.logger.add('Malformed request received.')
                 raise RegistrationRejectedException('Malformed request received.')
 
@@ -1555,7 +1552,7 @@ class WebAuthnAssertionResponse(object):
             self.logger.add('----- [Log-in] [Verify:Step12/13] Verify user verification flag. -----')
             flags = struct.unpack('!B', decoded_a_data[32])[0]
 
-            if (self.uv_required and (flags & const.USER_VERIFIED) != 0x04):
+            if (self.uv_required and (flags & USER_VERIFIED) != 0x04):
                 self.logger.add('Malformed request received.')
                 raise AuthenticationRejectedException('Malformed request received.')
 
@@ -1563,7 +1560,7 @@ class WebAuthnAssertionResponse(object):
             #
             # If user verification is not required for this assertion, verify
             # that the User Present bit of the flags in aData is set.
-            if (not self.uv_required and (flags & const.USER_PRESENT) != 0x01):
+            if (not self.uv_required and (flags & USER_PRESENT) != 0x01):
                 self.logger.add('Malformed request received.')
                 raise AuthenticationRejectedException('Malformed request received.')
 

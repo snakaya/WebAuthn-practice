@@ -19,30 +19,33 @@ from context import webauthn
 from models import Users
 
 
-app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///{}'.format(os.path.join(os.path.dirname(os.path.abspath(__name__)), 'webauthn.db'))
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-sk = os.getenv('FLASK_SECRET_KEY')
-app.secret_key = sk if sk else os.urandom(40)
-db.init_app(app)
-
-_version_ = '0.8'
-
+#
+# App Settings
+#
+DB_CONNECT_URI = 'sqlite:///{}'.format(os.path.join(os.path.dirname(os.path.abspath(__name__)), 'webauthn.db'))
+SECRET_KEY = os.getenv('FLASK_SECRET_KEY', os.urandom(40))
+APP_VERSION = '0.8'
 #
 # NOTE: PLEASE CHANGE TO YOUR RP_ID , ORIGIN URL AND PORT NUMBER FROM OS ENVIRONMENT VARIBLES.
 #
 RP_ID = os.getenv('WEBAUTHN_RP_ID', 'www.example.com')
 ORIGIN = os.getenv('WEBAUTHN_ORIGIN', 'https://www.example.com')
 PORT = os.getenv('WEBAUTHN_PORT', '5000')
-
 # Trust anchors (trusted attestation roots) should be
 # placed in TRUST_ANCHOR_DIR.
 TRUST_ANCHOR_DIR = 'trusted_attestation_roots'
 
 
+app = Flask(__name__)
+app.config['SQLALCHEMY_DATABASE_URI'] = DB_CONNECT_URI
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.secret_key = SECRET_KEY
+db.init_app(app)
+
+
 @app.route('/')
 def index():
-    return render_template('index.html', app_version = _version_)
+    return render_template('index.html', app_version = APP_VERSION)
 
 
 @app.route('/users', methods=['GET'])
