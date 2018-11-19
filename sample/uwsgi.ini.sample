@@ -1,0 +1,12 @@
+[uwsgi]
+module = wsgi:app
+
+master = true
+processes = 3
+
+logger = /var/log/uwsgi/uwsgi.log
+
+socket = /var/log/uwsgi/webauthn_practice.sock
+chmod-socket = 664
+vacuum = true
+die-on-term = true
