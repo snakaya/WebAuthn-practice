@@ -365,7 +365,7 @@ class WebAuthnOptions(object):
             with open(self._options_filename, 'w') as f:
                 json.dump(self.settings, f)
         except Exception as e:
-            raise CommonRejectedException('Options Save Error.')
+            raise CommonRejectedException('Options Save Error: {} .'.format(e))
     
     def load(self):
         if not os.path.isfile(self._options_filename):
