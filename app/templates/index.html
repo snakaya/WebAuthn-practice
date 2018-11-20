@@ -59,8 +59,8 @@
         </div>
 
         <div class="container rlPanel" id="rlModal">
-            <form name="registerform" method="get">
-                <h2 class="text-center">Register</h2>
+            <form name="registerform">
+                <h2 class="text-center">Registration</h2>
                 <div class="form-group">
                     <label for="register_username">Username</label>
                     <input type="text" class="form-control" id="register_username" name="register_username" placeholder="(Required) Enter Register Name">
@@ -71,13 +71,13 @@
                 </div>
                 <button id="registerBtn" type="submit" class="btn btn-primary btn-lg btn-block">Register with WebAuthn</button>
             </form>
-            <form name="authnform" method="get">
+            <form name="authnform">
                 <h2 class="text-center">Authentication</h2>
                 <div class="form-group">
                     <label for="authn_username">Username</label>
                     <input type="text" class="form-control" id="authn_username" name="authn_username" placeholder="Enter UserName">
                 </div>
-                <button id="authnBtn" type="submit" class="btn btn-primary btn-lg btn-block">Authentication with WebAuthn</button>
+                <button id="authnBtn" type="submit" class="btn btn-primary btn-lg btn-block">Authenticate with WebAuthn</button>
             </form>
             <form id="log-output-form">
                 <a href="#" id="clearlogLink"><svg id="clearlogIcon" class="clearIcon float-right" xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24"><path fill="none" d="M0 0h24v24H0V0z"/><path d="M16 9v10H8V9h8m-1.5-6h-5l-1 1H5v2h14V4h-3.5l-1-1zM18 7H6v12c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7z"/></svg></a>
@@ -395,7 +395,7 @@
             .join("");
     }
 
-    async function registerNewCredential(newCredential, stringlyNewCredential) {
+    async function verifyNewCredential(newCredential, stringlyNewCredential) {
         let attObj = new Uint8Array(
             newCredential.response.attestationObject);
         let clientDataJSON = new Uint8Array(
@@ -403,7 +403,7 @@
         let rawId = new Uint8Array(
             newCredential.rawId);
         let registrationClientExtensions = newCredential.getClientExtensionResults();
-        $.post('/verify_credential_info', {
+        $.post('/attestation/verify', {
             stringlyResponse: stringlyNewCredential,
             id: newCredential.id,
             rawId: b64enc(rawId),
@@ -440,7 +440,7 @@
         let rawId = new Uint8Array(assertedCredential.rawId);
         let sig = new Uint8Array(assertedCredential.response.signature);
         let assertionClientExtensions = assertedCredential.getClientExtensionResults();
-        $.post('/verify_assertion', {
+        $.post('/assertion/verify', {
             id: assertedCredential.id,
             rawId: b64enc(rawId),
             type: assertedCredential.type,
@@ -580,7 +580,7 @@
             var displayName = $('input[name="register_display_name"]').val();
 
             addLog('\n===== Registration Start =====');
-            $.post("/webauthn_begin_activate", {
+            $.post("/attestation/request", {
                 username: username,
                 displayName: displayName,
                 checkExistUser: true
@@ -610,7 +610,7 @@
                             addLog('----------');
                             // Send new credential info to server for
                             // verification and registration.
-                            registerNewCredential(newCredential, stringlyNewCredential);
+                            verifyNewCredential(newCredential, stringlyNewCredential);
                         }).then(() => {
                             addLog('===== Registration End =====');
                         }).catch(function(e) {
@@ -661,7 +661,7 @@
             var username = $('input[name="authn_username"]').val();
 
             addLog('\n===== Authentication Start =====');
-            $.post("/webauthn_begin_assertion", {
+            $.post("/assertion/request", {
                 username: username
             }).done(function(assertionOptions) {
                 console.log(assertionOptions);
@@ -741,9 +741,8 @@
             e.preventDefault();
             var username = $('input[name="view_username"]').val();
 
-            $.post("/webauthn_begin_activate", {
-                username: username,
-                checkExistUser: false
+            $.post("/attestation/request", {
+                username: username
             }).done(function(makeCredentialOptions) {
                 console.log(makeCredentialOptions);
                 addViewLog('----- MakeCredentialOptions -----');
@@ -769,7 +768,7 @@
                             let clientDataJSON = new Uint8Array(publicKeyCredential.response.clientDataJSON);
                             let rawId = new Uint8Array(publicKeyCredential.rawId);
                             let registrationClientExtensions = publicKeyCredential.getClientExtensionResults();
-                            $.post('/view/attestation', {
+                            $.post('/attestation/view', {
                                 id: publicKeyCredential.id,
                                 rawId: b64enc(rawId),
                                 type: publicKeyCredential.type,
@@ -830,7 +829,7 @@
             e.preventDefault();
             var username = $('input[name="view_username"]').val();
 
-            $.post("/webauthn_begin_assertion", {
+            $.post("/assertion/request", {
                 username: username
             }).done(function(assertionOptions) {
                 console.log(assertionOptions);
@@ -863,7 +862,7 @@
                             let rawId = new Uint8Array(assertedCredential.rawId);
                             let sig = new Uint8Array(assertedCredential.response.signature);
                             let assertionClientExtensions = assertedCredential.getClientExtensionResults();
-                            $.post('/view/assertion', {
+                            $.post('/assertion/view', {
                                 id: assertedCredential.id,
                                 rawId: b64enc(rawId),
                                 type: assertedCredential.type,

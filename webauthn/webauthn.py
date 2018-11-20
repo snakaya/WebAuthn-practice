@@ -1425,7 +1425,7 @@ class WebAuthnAssertionResponse(object):
             # If the allowCredentials option was given when this authentication
             # ceremony was initiated, verify that credential.id identifies one
             # of the public key credentials that were listed in allowCredentials.
-            self.logger.add('----- [Log-in] [Verify:Step1] Verify "id" value. -----')
+            self.logger.add('----- [Authentication] [Verify:Step1] Verify "id" value. -----')
             cid = self.assertion_response.get('id')
             if self.allow_credentials:
                 if cid not in self.allow_credentials:
@@ -1437,7 +1437,7 @@ class WebAuthnAssertionResponse(object):
             # If credential.response.userHandle is present, verify that the user
             # identified by this value is the owner of the public key credential
             # identified by credential.id.
-            self.logger.add('----- [Log-in] [Verify:Step2] Verify "userHandle" value. -----')
+            self.logger.add('----- [Authentication] [Verify:Step2] Verify "userHandle" value. -----')
             user_handle = self.assertion_response.get('userHandle')
             if user_handle:
                 if not user_handle == self.webauthn_user.username:
@@ -1449,7 +1449,7 @@ class WebAuthnAssertionResponse(object):
             # Using credential's id attribute (or the corresponding rawId, if
             # base64url encoding is inappropriate for your use case), look up
             # the corresponding credential public key.
-            self.logger.add('----- [Log-in] [Verify:Step3] Verify credential id and Decode PublicKey. -----')
+            self.logger.add('----- [Authentication] [Verify:Step3] Verify credential id and Decode PublicKey. -----')
             if not _validate_credential_id(self.webauthn_user.credential_id):
                 self.logger.add('Invalid credential ID.')
                 raise AuthenticationRejectedException('Invalid credential ID.')
@@ -1470,7 +1470,7 @@ class WebAuthnAssertionResponse(object):
             # Let cData, aData and sig denote the value of credential's
             # response's clientDataJSON, authenticatorData, and signature
             # respectively.
-            self.logger.add('----- [Log-in] [Verify:Step4] Parse Posted FormData. -----')
+            self.logger.add('----- [Authentication] [Verify:Step4] Parse Posted FormData. -----')
             c_data = self.assertion_response.get('clientData')
             a_data = self.assertion_response.get('authData')
             decoded_a_data = _webauthn_b64_decode(a_data)
@@ -1480,7 +1480,7 @@ class WebAuthnAssertionResponse(object):
             #
             # Let JSONtext be the result of running UTF-8 decode on the
             # value of cData.
-            self.logger.add('----- [Log-in] [Verify:Step5/6] Parse Posted FormData. -----')
+            self.logger.add('----- [Authentication] [Verify:Step5/6] Parse Posted FormData. -----')
             u8_clientdata = c_data.decode('utf-8')
 
             # Step 6.
@@ -1494,7 +1494,7 @@ class WebAuthnAssertionResponse(object):
             # Step 7.
             #
             # Verify that the value of C.type is the string webauthn.get.
-            self.logger.add('----- [Log-in] [Verify:Step7] Verify "type" value. -----')
+            self.logger.add('----- [Authentication] [Verify:Step7] Verify "type" value. -----')
             received_type = c.get('type')
             if not _verify_type(received_type, TYPE_GET):
                 self.logger.add('Invalid type.')
@@ -1505,7 +1505,7 @@ class WebAuthnAssertionResponse(object):
             # Verify that the value of C.challenge matches the challenge
             # that was sent to the authenticator in the
             # PublicKeyCredentialRequestOptions passed to the get() call.
-            self.logger.add('----- [Log-in] [Verify:Step8] Verify "challenge" value. -----')
+            self.logger.add('----- [Authentication] [Verify:Step8] Verify "challenge" value. -----')
             received_challenge = c.get('challenge')
             if not _verify_challenge(received_challenge, self.challenge):
                 self.logger.add('Unable to verify challenge.')
@@ -1515,7 +1515,7 @@ class WebAuthnAssertionResponse(object):
             #
             # Verify that the value of C.origin matches the Relying
             # Party's origin.
-            self.logger.add('----- [Log-in] [Verify:Step9] Verify "origin" value. -----')
+            self.logger.add('----- [Authentication] [Verify:Step9] Verify "origin" value. -----')
             if not _verify_origin(c, self.origin):
                 self.logger.add('Unable to verify origin.')
                 raise AuthenticationRejectedException('Unable to verify origin.')
@@ -1530,13 +1530,13 @@ class WebAuthnAssertionResponse(object):
             # Token Binding ID for the connection.
             #if not _verify_token_binding_id(c):
             #    raise AuthenticationRejectedException('Unable to verify token binding ID.')
-            self.logger.add('----- [Log-in] [Verify:Step10] Verify binding ID. (Ignored) -----')
+            self.logger.add('----- [Authentication] [Verify:Step10] Verify binding ID. (Ignored) -----')
 
             # Step 11.
             #
             # Verify that the rpIdHash in aData is the SHA-256 hash of
             # the RP ID expected by the Relying Party.
-            self.logger.add('----- [Log-in] [Verify:Step11] Verify "RP ID" Hash value. -----')
+            self.logger.add('----- [Authentication] [Verify:Step11] Verify "RP ID" Hash value. -----')
             auth_data_rp_id_hash = _get_auth_data_rp_id_hash(decoded_a_data)
             if not _verify_rp_id_hash(auth_data_rp_id_hash, self.webauthn_user.rp_id):
                 self.logger.add('Unable to verify RP ID hash.')
@@ -1549,7 +1549,7 @@ class WebAuthnAssertionResponse(object):
 
             # Authenticator data flags.
             # https://www.w3.org/TR/webauthn/#authenticator-data
-            self.logger.add('----- [Log-in] [Verify:Step12/13] Verify user verification flag. -----')
+            self.logger.add('----- [Authentication] [Verify:Step12/13] Verify user verification flag. -----')
             flags = struct.unpack('!B', decoded_a_data[32])[0]
 
             if (self.uv_required and (flags & USER_VERIFIED) != 0x04):
@@ -1577,7 +1577,7 @@ class WebAuthnAssertionResponse(object):
             # present that were not requested. In the general case, the meaning
             # of "are as expected" is specific to the Relying Party and which
             # extensions are in use.
-            self.logger.add('----- [Log-in] [Verify:Step14] Verify client and authenticator extension. -----')
+            self.logger.add('----- [Authentication] [Verify:Step14] Verify client and authenticator extension. -----')
             assertion_client_extensions = self.assertion_response.get(
                 'assertionClientExtensions')
             ace = json.loads(assertion_client_extensions)
@@ -1592,7 +1592,7 @@ class WebAuthnAssertionResponse(object):
             #
             # Let hash be the result of computing a hash over the cData
             # using SHA-256.
-            self.logger.add('----- [Log-in] [Verify:Step15] Compute ClientData Hash value. -----')
+            self.logger.add('----- [Authentication] [Verify:Step15] Compute ClientData Hash value. -----')
             client_data_hash = _get_client_data_hash(decoded_cd)
 
             # Step 16.
@@ -1600,7 +1600,7 @@ class WebAuthnAssertionResponse(object):
             # Using the credential public key looked up in step 3, verify
             # that sig is a valid signature over the binary concatenation
             # of aData and hash.
-            self.logger.add('----- [Log-in] [Verify:Step16] Verify Signature. -----')
+            self.logger.add('----- [Authentication] [Verify:Step16] Verify Signature. -----')
             verification_data = ''.join([
                 decoded_a_data,
                 client_data_hash])
@@ -1640,7 +1640,7 @@ class WebAuthnAssertionResponse(object):
             #             updates the stored signature counter value in this
             #             case, or not, or fails the authentication ceremony
             #             or not, is Relying Party-specific.
-            self.logger.add('----- [Log-in] [Verify:Step17] Verify Sign Count. -----')
+            self.logger.add('----- [Authentication] [Verify:Step17] Verify Sign Count. -----')
             sc = decoded_a_data[33:37]
             sign_count = struct.unpack('!I', sc)[0]
             if sign_count or self.webauthn_user.sign_count:
@@ -1653,7 +1653,7 @@ class WebAuthnAssertionResponse(object):
             # If all the above steps are successful, continue with the
             # authentication ceremony as appropriate. Otherwise, fail the
             # authentication ceremony.
-            self.logger.add('----- [Log-in] [Verify:Step18] retuen Sign Count. -----')
+            self.logger.add('----- [Authentication] [Verify:Step18] retuen Sign Count. -----')
             return sign_count
 
         except Exception as e:

@@ -84,8 +84,8 @@ def delete_user(id):
         return make_response(jsonify({'success': 'User successfully deleted.'}), 204)
 
 
-@app.route('/webauthn_begin_activate', methods=['POST'])
-def webauthn_begin_activate():
+@app.route('/attestation/request', methods=['POST'])
+def attestation_get_options():
     username = request.form.get('username')
     display_name = request.form.get('displayName')
 
@@ -128,8 +128,8 @@ def webauthn_begin_activate():
     return jsonify(make_credential_options.registration_dict)
 
 
-@app.route('/webauthn_begin_assertion', methods=['POST'])
-def webauthn_begin_assertion():
+@app.route('/assertion/request', methods=['POST'])
+def assertion_get_options():
     username = request.form.get('username')
 
     if 'challenge' in session:
@@ -170,8 +170,8 @@ def webauthn_begin_assertion():
     return jsonify(webauthn_assertion_options.assertion_dict)
 
 
-@app.route('/verify_credential_info', methods=['POST'])
-def verify_credential_info():
+@app.route('/attestation/verify', methods=['POST'])
+def attestation_verify_response():
 
     logger = webauthn.WebAuthnLogger()
 
@@ -257,11 +257,11 @@ def verify_credential_info():
     return jsonify({'success': 'User ({}) successfully registered.'.format(username), 'debug_log': logger.get()})
 
 
-@app.route('/verify_assertion', methods=['POST'])
-def verify_assertion():
+@app.route('/assertion/verify', methods=['POST'])
+def assertion_verify_response():
     logger = webauthn.WebAuthnLogger()
 
-    app.logger.debug('----- [Log-in] Authenticator Response (Native) from Authenticator/Client -----')
+    app.logger.debug('----- [Authentication] Authenticator Response (Native) from Authenticator/Client -----')
     app.logger.debug(str(request.form.to_dict()))
     app.logger.debug('----- End -----')
 
@@ -292,10 +292,10 @@ def verify_assertion():
         allow_credentials=None,
         uv_required=False)  # User Verification
 
-    logger.add('----- [Log-in] Received Data -----')
+    logger.add('----- [Authentication] Received Data -----')
 
     try:
-        logger.add('----- [Log-in] Authenticator Response (Decoded) from Authenticator/Client -----')
+        logger.add('----- [Authentication] Authenticator Response (Decoded) from Authenticator/Client -----')
         webauthn_tools = webauthn.WebAuthnTools()
         decoded_assertion_response = webauthn_tools.view_assertion(assertion_response)
         logger.add(json.dumps(decoded_assertion_response, indent=4))
@@ -306,9 +306,9 @@ def verify_assertion():
         return jsonify({'fail': 'Attestation view failed. Error: {}'.format(e), 'debug_log': logger.get()})
 
     try:
-        logger.add('----- [Log-in] [Verify] Start -----')
+        logger.add('----- [Authentication] [Verify] Start -----')
         sign_count = webauthn_assertion_response.verify()
-        logger.add('----- [Log-in] [Verify] End   -----')
+        logger.add('----- [Authentication] [Verify] End   -----')
     except Exception as e:
         app.logger.debug('Assertion failed. Error: {}'.format(e))
         logger.add('Assertion failed. Error: {}'.format(e))
@@ -319,14 +319,14 @@ def verify_assertion():
     db.session.add(user)
     db.session.commit()
 
-    logger.add('----- [Log-in] Server Successfully Return. -----')
+    logger.add('----- [Authentication] Server Successfully Return. -----')
     return jsonify({
-        'success': u'Successfully logged in as {}'.format(user.username),
+        'success': u'Successfully Authenticate as {}'.format(user.username),
         'debug_log': logger.get()
     })
 
 
-@app.route('/view/attestation', methods=['POST'])
+@app.route('/attestation/view', methods=['POST'])
 def view_attestation():
     registration_response = request.form
 
@@ -340,7 +340,7 @@ def view_attestation():
     return jsonify(decoded_attestation_response)
 
 
-@app.route('/view/assertion', methods=['POST'])
+@app.route('/assertion/view', methods=['POST'])
 def view_assertion():
     assertion_response = request.form
 
