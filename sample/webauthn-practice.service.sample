@@ -1,0 +1,16 @@
+#
+# Systemd settings sample to serve WebAuthn-practice/uWSGI
+#
+[Unit]
+Description=uWSGI instance to serve WebAuthn-practice
+After=network.target
+
+[Service]
+User=nginx
+Group=nginx
+WorkingDirectory=/var/www/webauthn-practice/app
+Environment="PATH=/var/www/webauthn-practice/app" "WEBAUTHN_RP_ID=www.example.com" "WEBAUTHN_ORIGIN=https://www.example.com"
+ExecStart=/usr/bin/uwsgi --ini uwsgi.ini
+
+[Install]
+WantedBy=multi-user.target

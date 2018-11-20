@@ -1,4 +1,7 @@
 [uwsgi]
+;
+; uwsgi.ini for WebAuthn-practice Sample.
+;
 module = wsgi:app
 
 master = true
