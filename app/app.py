@@ -20,13 +20,21 @@ from models import Users
 
 
 #
-# App Settings
+#  App Settings  START
 #
-DB_CONNECT_URI = 'sqlite:///{}'.format(os.path.join(os.path.dirname(os.path.abspath(__name__)), 'webauthn.db'))
-SECRET_KEY = os.getenv('FLASK_SECRET_KEY', os.urandom(40))
-APP_VERSION = '0.8'
+
+# DB Settings
+DB_USERNAME = ''             # Set DB Username
+DB_PASSWORD = ''             # Set DB User's Password
+DB_HOST     = '127.0.0.1'    # Set DB Server DNS Name or IP Address
+DB_NAME     = 'webauthn.db'  # Set DB Name(SID)
+# Choose your DB type
+#DB_CONNECT_URI = 'mysql://{}:{}@{}/{}'.format(DB_USERNAME, DB_PASSWORD, DB_HOST, DB_NAME)                    # MySQL
+#DB_CONNECT_URI = 'postgresql://{}:{}@{}/{}'.format(DB_USERNAME, DB_PASSWORD, DB_HOST, DB_NAME)               # PostgreSQL
+#DB_CONNECT_URI = 'oracle://{}:{}@{}/{}'.format(DB_USERNAME, DB_PASSWORD, DB_HOST, DB_NAME)                   # Oracle
+DB_CONNECT_URI = 'sqlite:///{}'.format(os.path.join(os.path.dirname(os.path.abspath(__name__)), DB_NAME))    # SQLite
 #
-# NOTE: PLEASE CHANGE TO YOUR RP_ID , ORIGIN URL AND PORT NUMBER FROM OS ENVIRONMENT VARIBLES.
+# NOTE: PLEASE CHANGE TO YOUR RP_ID , ORIGIN URL AND PORT NUMBER FROM OS ENVIRONMENT VARIABLES.
 #
 RP_ID = os.getenv('WEBAUTHN_RP_ID', 'www.example.com')
 ORIGIN = os.getenv('WEBAUTHN_ORIGIN', 'https://www.example.com')
@@ -34,6 +42,11 @@ PORT = os.getenv('WEBAUTHN_PORT', '5000')
 # Trust anchors (trusted attestation roots) should be
 # placed in TRUST_ANCHOR_DIR.
 TRUST_ANCHOR_DIR = 'trusted_attestation_roots'
+# Set Flask SecretKey
+SECRET_KEY = os.getenv('FLASK_SECRET_KEY', os.urandom(40))
+#
+#  App Settings  END
+#
 
 
 app = Flask(__name__)
@@ -42,6 +55,11 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.secret_key = SECRET_KEY
 db.init_app(app)
 
+try:
+    with open(os.path.join(os.path.dirname(os.path.abspath(__name__)), '../VERSION')) as f:
+        APP_VERSION = f.read()
+except IOError:
+    APP_VERSION = 'xx.xx'
 
 @app.route('/')
 def index():
