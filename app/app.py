@@ -219,6 +219,7 @@ def attestation_verify_response():
     try:
         logger.add('----- [Registration] [Verify] Start -----')
         webauthn_credential = webauthn_registration_response.verify()
+        logger.add(webauthn_registration_response.getLog())
         logger.add('----- [Registration] [Verify] End   -----')
     except Exception as e:
         app.logger.debug('Registration failed. Error: {}'.format(e))
@@ -308,6 +309,7 @@ def assertion_verify_response():
     try:
         logger.add('----- [Authentication] [Verify] Start -----')
         sign_count = webauthn_assertion_response.verify()
+        logger.add(webauthn_assertion_response.getLog())
         logger.add('----- [Authentication] [Verify] End   -----')
     except Exception as e:
         app.logger.debug('Assertion failed. Error: {}'.format(e))

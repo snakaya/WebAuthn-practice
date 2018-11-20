@@ -107,7 +107,11 @@ class WebAuthnLogger(object):
         self.debug_log = []
 
     def add(self, msg):
-        self.debug_log.append(msg)
+        if type(msg) == str or type(msg) == unicode:
+            self.debug_log.append(msg)
+        elif type(msg) == list:
+            for m in msg:
+                self.debug_log.append(m)
     def get(self):
         return self.debug_log
 
@@ -773,6 +777,9 @@ class WebAuthnRegistrationResponse(object):
 
         self.logger = WebAuthnLogger()
 
+    def getLog(self):
+        return self.logger.get()
+
     def _verify_attestation_statement(self, fmt, att_stmt, auth_data, client_data_hash):
         '''Verification procedure: The procedure for verifying an attestation statement,
         which takes the following verification procedure inputs:
@@ -1417,6 +1424,9 @@ class WebAuthnAssertionResponse(object):
         self.uv_required = uv_required
 
         self.logger = WebAuthnLogger()
+    
+    def getLog(self):
+        return self.logger.get()
 
     def verify(self):
         try:
