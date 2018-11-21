@@ -11,7 +11,7 @@ If you are WebAuthn/FIDO2 developer, Their output and logs will be useful well.
 ## Feature
 
 * Registration(Attestation) and Authentication(Assertion).
-  * Support Attestation Statement Type ('packed', 'android-saftynet', 'fido-u2f' and 'none', expect 'tpm', 'android-key' and 'ECDAA').
+  * Support Attestation Statement Type ('packed(Basic and Self)', 'android-saftynet', 'fido-u2f' and 'none', expect 'tpm', 'android-key' and 'packed(ECDAA)').
   * Support signature algorithm EC256 and RS256.
 * Change request options(Credential and Assertion).
 * Register users with credential info.
