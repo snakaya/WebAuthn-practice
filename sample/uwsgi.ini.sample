@@ -5,10 +5,11 @@
 module = wsgi:app
 
 master = true
-processes = 3
+processes = 1
 
 logger = /var/log/uwsgi/uwsgi.log
 
+#socket = 127.0.0.1:5000
 socket = /var/log/uwsgi/webauthn_practice.sock
 chmod-socket = 664
 vacuum = true
