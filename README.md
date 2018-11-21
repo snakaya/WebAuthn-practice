@@ -77,9 +77,17 @@ You MUST setup HTTPS Web server (i.e.  Nginx, Apache httpd) after setting RP ser
 
 ## Configuration
 
+Please refer sample/.env.sample
+
 ### Database Setting
 
 Please set Database connection info via Environment Variables.
+
+    $ export WEBAUTHN_DB_TYPE=mysql
+    $ export WEBAUTHN_DB_USERID=scott
+    $ export WEBAUTHN_DB_PASSWORD=tiger
+    $ export WEBAUTHN_DB_HOST=127.0.0.1
+    $ export WEBAUTHN_DB_NAME=sampledb
 
 * **WEBAUTHN_DB_TYPE**
   * (Required) set your DB Type the followings:
@@ -102,8 +110,8 @@ if you change DB Type, Please retry to create db.
 
 WebAuthn RP need to be set RP ID and Origin URL before of startup via Environment Variables.
 
-    $ export WEBAUTHN_RP_ID=<Your RP ID>             # i.e.) www.example.com
-    $ export WEBAUTHN_ORIGIN=<Your Origin URL>       # i.e.) https://www.example.com
+    $ export WEBAUTHN_RP_ID=www.example.com
+    $ export WEBAUTHN_ORIGIN=https://www.example.com
 
 * **WEBAUTHN_RP_ID**
   * (Required) set your RP ID.  i.e.) 'www.example.com'
