@@ -19,22 +19,23 @@ from context import webauthn
 from models import Users
 
 
-#
-#  App Settings  START
-#
-
 # DB Settings
-DB_USERNAME = ''             # Set DB Username
-DB_PASSWORD = ''             # Set DB User's Password
-DB_HOST     = '127.0.0.1'    # Set DB Server DNS Name or IP Address
-DB_NAME     = 'webauthn.db'  # Set DB Name(SID)
-# Choose your DB type
-#DB_CONNECT_URI = 'mysql://{}:{}@{}/{}'.format(DB_USERNAME, DB_PASSWORD, DB_HOST, DB_NAME)                    # MySQL
-#DB_CONNECT_URI = 'postgresql://{}:{}@{}/{}'.format(DB_USERNAME, DB_PASSWORD, DB_HOST, DB_NAME)               # PostgreSQL
-#DB_CONNECT_URI = 'oracle://{}:{}@{}/{}'.format(DB_USERNAME, DB_PASSWORD, DB_HOST, DB_NAME)                   # Oracle
-DB_CONNECT_URI = 'sqlite:///{}'.format(os.path.join(os.path.dirname(os.path.abspath(__name__)), DB_NAME))    # SQLite
+DB_TYPE = os.getenv('WEBAUTHN_DB_TYPE', 'sqlite') # 'mysql', 'postgresql', 'oracle' or 'sqlite'
+DB_USERID = os.getenv('WEBAUTHN_DB_USERID', '')
+DB_PASSWORD = os.getenv('WEBAUTHN_DB_PASSWORD', '')
+DB_HOST     = os.getenv('WEBAUTHN_DB_HOST')
+DB_NAME     = os.getenv('WEBAUTHN_DB_NAME', 'webauthn.db')
+
+if DB_TYPE not in ['mysql', 'postgresql', 'oracle', 'sqlite']:
+    DB_TYPE = 'sqlite'
+    DB_NAME = 'webauthn.db'
+if DB_TYPE == 'sqlite':
+    db_connect_URL = 'sqlite:///{}'.format(os.path.join(os.path.dirname(os.path.abspath(__name__)), DB_NAME))
+else:
+    db_connect_URL = '{}://{}:{}@{}/{}'.format(DB_TYPE, DB_USERID, DB_PASSWORD, DB_HOST, DB_NAME)
+
 #
-# NOTE: PLEASE CHANGE TO YOUR RP_ID , ORIGIN URL AND PORT NUMBER FROM OS ENVIRONMENT VARIABLES.
+# NOTE: PLEASE CHANGE TO YOUR RP_ID AND ORIGIN URL VIA OS ENVIRONMENT VARIABLES.
 #
 RP_ID = os.getenv('WEBAUTHN_RP_ID', 'www.example.com')
 ORIGIN = os.getenv('WEBAUTHN_ORIGIN', 'https://www.example.com')
@@ -42,15 +43,12 @@ PORT = os.getenv('WEBAUTHN_PORT', '5000')
 # Trust anchors (trusted attestation roots) should be
 # placed in TRUST_ANCHOR_DIR.
 TRUST_ANCHOR_DIR = 'trusted_attestation_roots'
+
 # Set Flask SecretKey
 SECRET_KEY = os.getenv('FLASK_SECRET_KEY', os.urandom(40))
-#
-#  App Settings  END
-#
-
 
 app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = DB_CONNECT_URI
+app.config['SQLALCHEMY_DATABASE_URI'] = db_connect_URL
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.secret_key = SECRET_KEY
 db.init_app(app)
