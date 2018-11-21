@@ -6,9 +6,9 @@ class Users(db.Model):
     id = db.Column(db.Integer, primary_key=True)
 
     ukey = db.Column(db.String(20), unique=False, nullable=False)
-    credential_id = db.Column(db.String(250), unique=False, nullable=False)
+    credential_id = db.Column(db.Text, unique=False, nullable=False)
     display_name = db.Column(db.String(160), unique=False, nullable=True)
-    pub_key = db.Column(db.String(250), unique=False, nullable=True)
+    pub_key = db.Column(db.Text, unique=False, nullable=True)
     sign_count = db.Column(db.Integer, default=0)
     username = db.Column(db.String(80), unique=False, nullable=False)
     att_option = db.Column(db.Text, nullable=True)
