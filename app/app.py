@@ -84,7 +84,7 @@ def get_user(id):
         u_dict = Users.to_dict(u)
         webauthn_tools = webauthn.WebAuthnTools()
         u_dict['pub_key'] = webauthn_tools.format_user_pubkey(u_dict['pub_key'])
-        return jsonify(u_dict)
+        return make_response(jsonify(u_dict), 200)
 
 @app.route("/users", methods=['DELETE'])
 def delete_alluser(id):
@@ -170,7 +170,7 @@ def attestation_get_options():
     reg_dict = json.dumps(make_credential_options.registration_dict, indent=2)
     session['att_option'] = reg_dict
 
-    return jsonify(make_credential_options.registration_dict)
+    return make_response(jsonify(make_credential_options.registration_dict), 200)
 
 
 @app.route('/assertion/request', methods=['POST'])
@@ -195,7 +195,7 @@ def assertion_get_options():
         for user in users:
             if not user.credential_id:
                 app.logger.debug('Unknown credential ID.')
-                return make_response(jsonify({'fail': 'Unknown credential ID.'}), 401)
+                return make_response(jsonify({'fail': 'Unknown credential ID.'}), 404)
             webauthn_user = webauthn.WebAuthnUser(
                 user.ukey,
                 user.username,
@@ -212,7 +212,7 @@ def assertion_get_options():
         challenge,
         RP_ID)
 
-    return jsonify(webauthn_assertion_options.assertion_dict)
+    return make_response(jsonify(webauthn_assertion_options.assertion_dict), 200)
 
 
 @app.route('/attestation/verify', methods=['POST'])
@@ -259,7 +259,7 @@ def attestation_verify_response():
     except Exception as e:
         app.logger.debug('Attestation view failed. Error: {}'.format(e))
         logger.add('Attestation view failed. Error: {}'.format(e))
-        return jsonify({'fail': 'Attestation view failed. Error: {}'.format(e), 'debug_log': logger.get()})
+        return make_response(jsonify({'fail': 'Attestation view failed. Error: {}'.format(e), 'debug_log': logger.get()}), 500)
 
     try:
         logger.add('----- [Registration] [Verify] Start -----')
@@ -282,7 +282,7 @@ def attestation_verify_response():
     if credential_id_exists:
         app.logger.debug('Credential ID already exists.')
         logger.add('Credential ID already exists.')
-        return make_response(jsonify({'fail': 'Credential ID already exists.', 'debug_log': logger.get()}), 401)
+        return make_response(jsonify({'fail': 'Credential ID already exists.', 'debug_log': logger.get()}), 409)
 
     user = Users(
         ukey=ukey,
@@ -300,7 +300,7 @@ def attestation_verify_response():
     db.session.commit()
 
     logger.add('----- [Registration] Server Successfully Return. -----')
-    return jsonify({'success': 'User ({}) successfully registered.'.format(username), 'debug_log': logger.get()})
+    return make_response(jsonify({'success': 'User ({}) successfully registered.'.format(username), 'debug_log': logger.get()}), 200)
 
 
 @app.route('/assertion/verify', methods=['POST'])
@@ -318,7 +318,7 @@ def assertion_verify_response():
     user = Users.query.filter_by(credential_id=credential_id).first()
     if not user:
         app.logger.debug('Credential ID is not found.')
-        return make_response(jsonify({'fail': 'Credential ID is not found.'}), 401)
+        return make_response(jsonify({'fail': 'Credential ID is not found.'}), 404)
 
     webauthn_user = webauthn.WebAuthnUser(
         user.ukey,
@@ -349,7 +349,7 @@ def assertion_verify_response():
     except Exception as e:
         app.logger.debug('Assertion view failed. Error: {}'.format(e))
         logger.add('Attestation view failed. Error: {}'.format(e))
-        return jsonify({'fail': 'Attestation view failed. Error: {}'.format(e), 'debug_log': logger.get()})
+        return make_response(jsonify({'fail': 'Attestation view failed. Error: {}'.format(e), 'debug_log': logger.get()}), 500)
 
     try:
         logger.add('----- [Authentication] [Verify] Start -----')
@@ -367,10 +367,7 @@ def assertion_verify_response():
     db.session.commit()
 
     logger.add('----- [Authentication] Server Successfully Return. -----')
-    return jsonify({
-        'success': u'Successfully Authenticate as {}'.format(user.username),
-        'debug_log': logger.get()
-    })
+    return make_response(jsonify({'success': u'Successfully Authenticate as {}'.format(user.username), 'debug_log': logger.get()}), 200)
 
 
 @app.route('/attestation/view', methods=['POST'])
@@ -382,9 +379,9 @@ def view_attestation():
         decoded_attestation_response = webauthn_tools.view_attestation(registration_response)
     except Exception as e:
         app.logger.debug('View Attestation Response failed. Error: {}'.format(e))
-        return jsonify({'fail': 'View Attestation Response failed. Error: {}'.format(e)})
+        return make_response(jsonify({'fail': 'View Attestation Response failed. Error: {}'.format(e)}), 500)
 
-    return jsonify(decoded_attestation_response)
+    return make_response(jsonify(decoded_attestation_response), 200)
 
 
 @app.route('/assertion/view', methods=['POST'])
@@ -396,9 +393,9 @@ def view_assertion():
         decoded_assertion_response = webauthn_tools.view_assertion(assertion_response)
     except Exception as e:
         app.logger.debug('View Assertion Response failed. Error: {}'.format(e))
-        return jsonify({'fail': 'View Assertion Response failed. Error: {}'.format(e)})
+        return make_response(jsonify({'fail': 'View Assertion Response failed. Error: {}'.format(e)}), 500)
 
-    return jsonify(decoded_assertion_response)
+    return make_response(jsonify(decoded_assertion_response), 200)
 
 
 @app.route('/options', methods=['GET'])
@@ -410,9 +407,9 @@ def get_options():
         options_dict = options.get()
     except Exception as e:
         app.logger.debug('Options failed. Error: {}'.format(e))
-        return jsonify({'fail': 'Options failed. Error: {}'.format(e)})
+        return make_response(jsonify({'fail': 'Options failed. Error: {}'.format(e)}), 500)
 
-    return jsonify(options_dict)
+    return make_response(jsonify(options_dict), 200)
 
 
 @app.route('/options', methods=['POST'])
@@ -441,43 +438,43 @@ def set_options():
         if conveyancePreference in webauthn.WebAuthnOptions.SUPPORTED_CONVEYANCE_PREFARENCE:
             options.conveyancePreference = conveyancePreference
         else:
-            return jsonify({'fail': 'Option Selection Error (conveyancePreference).'})
+            return make_response(jsonify({'fail': 'Option Selection Error (conveyancePreference).'}), 400)
         if userVerification in webauthn.WebAuthnOptions.SUPPORTED_AUTHENTICATIONSELECTION_USERVERIFICATION:
             options.userVerification = userVerification
         else:
-            return jsonify({'fail': 'Option Selection Error (userVerification).'})
+            return make_response(jsonify({'fail': 'Option Selection Error (userVerification).'}), 400)
         if requireResidentKey in webauthn.WebAuthnOptions.SUPPORTED_REQUIRE_REDIDENTKEY:
             options.requireResidentKey = requireResidentKey
         else:
-            return jsonify({'fail': 'Option Selection Error (requireResidentKey).'})
+            return make_response(jsonify({'fail': 'Option Selection Error (requireResidentKey).'}), 400)
         if authenticatorAttachment in webauthn.WebAuthnOptions.SUPPORTED_AUTHENTICATIONSELECTION_ATTACHIMENT or authenticatorAttachment == '':
             options.authenticatorAttachment = authenticatorAttachment
         else:
-            return jsonify({'fail': 'Option Selection Error (authenticatorAttachment).'})
+            return make_response(jsonify({'fail': 'Option Selection Error (authenticatorAttachment).'}), 400)
         if enableAttestationAllowCredentials in webauthn.WebAuthnOptions.SUPPORTED_ENABLE_CREDENTIALS:
             options.enableAttestationAllowCredentials = enableAttestationAllowCredentials
         else:
-            return jsonify({'fail': 'Option Selection Error (enableAttestationAllowCredentials).'})
+            return make_response(jsonify({'fail': 'Option Selection Error (enableAttestationAllowCredentials).'}), 400)
         if re.sub(r'\d', '', re.sub(r'\s', '', attestationAllowCredentialsUsers)) == '':
             options.attestationAllowCredentialsUsers = attestationAllowCredentialsUsers.split(' ')
         else:
-            return jsonify({'fail': 'Option Selection Error (attestationAllowCredentialsUsers).'})
+            return make_response(jsonify({'fail': 'Option Selection Error (attestationAllowCredentialsUsers).'}), 400)
         if set(attestationAllowCredentialsTransports.split(' ')).issubset(webauthn.WebAuthnOptions.SUPPORTED_TRANSPORTS) or attestationAllowCredentialsTransports == '':
             options.attestationAllowCredentialsTransports = attestationAllowCredentialsTransports.split(' ')
         else:
-            return jsonify({'fail': 'Option Selection Error (attestationAllowCredentialsTransports).'})
+            return make_response(jsonify({'fail': 'Option Selection Error (attestationAllowCredentialsTransports).'}), 400)
         if enableAttestationExcludeCredentials in webauthn.WebAuthnOptions.SUPPORTED_ENABLE_CREDENTIALS:
             options.enableAttestationExcludeCredentials = enableAttestationExcludeCredentials
         else:
-            return jsonify({'fail': 'Option Selection Error (enableAttestationExcludeCredentials).'})
+            return make_response(jsonify({'fail': 'Option Selection Error (enableAttestationExcludeCredentials).'}), 400)
         if re.sub(r'\d', '', re.sub(r'\s', '', attestationExcludeCredentialsUsers)) == '':
             options.attestationExcludeCredentialsUsers = attestationExcludeCredentialsUsers.split(' ')
         else:
-            return jsonify({'fail': 'Option Selection Error (attestationExcludeCredentialsUsers).'})
+            return make_response(jsonify({'fail': 'Option Selection Error (attestationExcludeCredentialsUsers).'}), 400)
         if set(attestationExcludeCredentialsTransports.split(' ')).issubset(webauthn.WebAuthnOptions.SUPPORTED_TRANSPORTS) or attestationExcludeCredentialsTransports == '':
             options.attestationExcludeCredentialsTransports = attestationExcludeCredentialsTransports.split(' ')
         else:
-            return jsonify({'fail': 'Option Selection Error (attestationExcludeCredentialsTransports).'})
+            return make_response(jsonify({'fail': 'Option Selection Error (attestationExcludeCredentialsTransports).'}), 400)
         if attestationExtensions is not None:
             tmp_dict = {}
             for lineitem in attestationExtensions.splitlines():
@@ -487,19 +484,19 @@ def set_options():
             if len(tmp_dict) == len(attestationExtensions.splitlines()):
                 options.attestationExtensions = tmp_dict
             else:
-                return jsonify({'fail': 'Option Format Error (attestationExtensions).'})
+                return make_response(jsonify({'fail': 'Option Format Error (attestationExtensions).'}), 400)
         if enableAssertionAllowCredentials in webauthn.WebAuthnOptions.SUPPORTED_ENABLE_CREDENTIALS:
             options.enableAssertionAllowCredentials = enableAssertionAllowCredentials
         else:
-            return jsonify({'fail': 'Option Selection Error (enableAssertionAllowCredentials).'})
+            return make_response(jsonify({'fail': 'Option Selection Error (enableAssertionAllowCredentials).'}), 400)
         if re.sub(r'\d', '', re.sub(r'\s', '', assertionAllowCredentialsUsers)) == '':
             options.assertionAllowCredentialsUsers = assertionAllowCredentialsUsers.split(' ')
         else:
-            return jsonify({'fail': 'Option Selection Error (assertionAllowCredentialsUsers).'})
+            return make_response(jsonify({'fail': 'Option Selection Error (assertionAllowCredentialsUsers).'}), 400)
         if set(assertionAllowCredentialsTransports.split(' ')).issubset(webauthn.WebAuthnOptions.SUPPORTED_TRANSPORTS) or assertionAllowCredentialsTransports == '':
             options.assertionAllowCredentialsTransports = assertionAllowCredentialsTransports.split(' ')
         else:
-            return jsonify({'fail': 'Option Selection Error (assertionAllowCredentialsTransports).'})
+            return make_response(jsonify({'fail': 'Option Selection Error (assertionAllowCredentialsTransports).'}), 400)
         if assertionExtensions is not None:
             tmp_dict = {}
             for lineitem in assertionExtensions.splitlines():
@@ -509,15 +506,15 @@ def set_options():
             if len(tmp_dict) == len(assertionExtensions.splitlines()):
                 options.assertionExtensions = tmp_dict
             else:
-                return jsonify({'fail': 'Option Format Error (assertionExtensions).'})
+                return make_response(jsonify({'fail': 'Option Format Error (assertionExtensions).'}), 400)
 
         options.save()
 
     except Exception as e:
         app.logger.debug('Options failed. Error: {}'.format(e))
-        return jsonify({'fail': 'Options failed. Error: {}'.format(e)})
+        return make_response(jsonify({'fail': 'Options failed. Error: {}'.format(e)}), 500)
     
-    return jsonify({'success': 'Options successfully saved.'})
+    return make_response(jsonify({'success': 'Options successfully saved.'}), 200)
 
 
 if __name__ == '__main__':
