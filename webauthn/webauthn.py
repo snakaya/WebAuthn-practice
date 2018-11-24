@@ -7,6 +7,7 @@ import json
 import os
 import struct
 import sys
+import re
 
 import cbor2
 import six
@@ -344,9 +345,13 @@ class WebAuthnOptions(object):
                     'authenticatorAttachment': ''    # 'cross-platform', 'platform'
                 },
                 'allowCredentials': {
+                    'enabled': '',                     # 'true', 'false'
+                    'id': [],
                     'transports': []                   # 'usb', 'nfc', 'ble', 'internal'
                 },
                 'excludeCredentials': {
+                    'enabled': '',                     # 'true', 'false'
+                    'id': [],
                     'transports': []                   # 'usb', 'nfc', 'ble', 'internal'
                 },
                 'extensions': {}
@@ -354,6 +359,7 @@ class WebAuthnOptions(object):
             'assertion' : {
                 'allowCredentials': {
                     'enabled': '',                     # 'true', 'false'
+                    'id': [],
                     'transports': []                   # 'usb', 'nfc', 'ble', 'internal'
                 },
                 'extensions': {}
@@ -450,44 +456,120 @@ class WebAuthnOptions(object):
             raise CommonRejectedException('Dictionary broken Error (authenticatorAttachment).')
 
     @property
-    def attestationAllowCredentials(self):
-        return self.settings.get('attestation', {}).get('allowCredentials', {}).get('transports', [])
-    @attestationAllowCredentials.setter
-    def attestationAllowCredentials(self, val):
+    def enableAttestationAllowCredentials(self):
+        return self.settings.get('attestation', {}).get('allowCredentials', {}).get('enabled', '')
+    @enableAttestationAllowCredentials.setter
+    def enableAttestationAllowCredentials(self, val):
+        if val not in self.SUPPORTED_ENABLE_CREDENTIALS:
+            raise CommonRejectedException('Option Type Error (enableAttestationAllowCredentials).')
+        if 'attestation' in self.settings:
+            if 'allowCredentials' in self.settings['attestation']:
+                if 'enabled' in self.settings['attestation']['allowCredentials']:
+                    self.settings['attestation']['allowCredentials']['enabled'] = val
+                else:
+                    raise CommonRejectedException('Dictionary broken Error (enableAttestationAllowCredentials).')
+            else:
+                raise CommonRejectedException('Dictionary broken Error (enableAttestationAllowCredentials).')
+        else:
+            raise CommonRejectedException('Dictionary broken Error (enableAttestationAllowCredentials).')
+
+    @property
+    def attestationAllowCredentialsUsers(self):
+        return self.settings.get('attestation', {}).get('allowCredentials', {}).get('id', [])
+    @attestationAllowCredentialsUsers.setter
+    def attestationAllowCredentialsUsers(self, val):
         if type(val) != list:
-            raise CommonRejectedException('Option Type Error (attestationAllowCredentials).')
+            raise CommonRejectedException('Option Type Error (attestationAllowCredentialsUsers).')
+        if str(re.sub(r'\d', '', ''.join(val))) != '':
+            raise CommonRejectedException('Option Selection Error (attestationAllowCredentialsUsers).')
+        if 'attestation' in self.settings:
+            if 'allowCredentials' in self.settings['attestation']:
+                if 'id' in self.settings['attestation']['allowCredentials']:
+                    self.settings['attestation']['allowCredentials']['id'] = [] if (len(val) == 1 and val[0] == '') else val
+                else:
+                    raise CommonRejectedException('Dictionary broken Error (attestationAllowCredentialsUsers).')
+            else:
+                raise CommonRejectedException('Dictionary broken Error (attestationAllowCredentialsUsers).')
+        else:
+            raise CommonRejectedException('Dictionary broken Error (attestationAllowCredentialsUsers).')
+
+    @property
+    def attestationAllowCredentialsTransports(self):
+        return self.settings.get('attestation', {}).get('allowCredentials', {}).get('transports', [])
+    @attestationAllowCredentialsTransports.setter
+    def attestationAllowCredentialsTransports(self, val):
+        if type(val) != list:
+            raise CommonRejectedException('Option Type Error (attestationAllowCredentialsTransports).')
         if not set(val).issubset(self.SUPPORTED_TRANSPORTS):
-            raise CommonRejectedException('Option Selection Error (attestationAllowCredentials).')
+            raise CommonRejectedException('Option Selection Error (attestationAllowCredentialsTransports).')
         if 'attestation' in self.settings:
             if 'allowCredentials' in self.settings['attestation']:
                 if 'transports' in self.settings['attestation']['allowCredentials']:
                     self.settings['attestation']['allowCredentials']['transports'] = [] if (len(val) == 1 and val[0] == '') else val
                 else:
-                    raise CommonRejectedException('Dictionary broken Error (attestationAllowCredentials).')
+                    raise CommonRejectedException('Dictionary broken Error (attestationAllowCredentialsTransports).')
             else:
-                raise CommonRejectedException('Dictionary broken Error (attestationAllowCredentials).')
+                raise CommonRejectedException('Dictionary broken Error (attestationAllowCredentialsTransports).')
         else:
-            raise CommonRejectedException('Dictionary broken Error (attestationAllowCredentials).')
+            raise CommonRejectedException('Dictionary broken Error (attestationAllowCredentialsTransports).')
     
     @property
-    def attestationExcludeCredentials(self):
-        return self.settings.get('attestation', {}).get('excludeCredentials', {}).get('transports', [])
-    @attestationExcludeCredentials.setter
-    def attestationExcludeCredentials(self, val):
+    def enableAttestationExcludeCredentials(self):
+        return self.settings.get('attestation', {}).get('excludeCredentials', {}).get('enabled', '')
+    @enableAttestationExcludeCredentials.setter
+    def enableAttestationExcludeCredentials(self, val):
+        if val not in self.SUPPORTED_ENABLE_CREDENTIALS:
+            raise CommonRejectedException('Option Type Error (enableAttestationExcludeCredentials).')
+        if 'attestation' in self.settings:
+            if 'excludeCredentials' in self.settings['attestation']:
+                if 'enabled' in self.settings['attestation']['excludeCredentials']:
+                    self.settings['attestation']['excludeCredentials']['enabled'] = val
+                else:
+                    raise CommonRejectedException('Dictionary broken Error (enableAttestationExcludeCredentials).')
+            else:
+                raise CommonRejectedException('Dictionary broken Error (enableAttestationExcludeCredentials).')
+        else:
+            raise CommonRejectedException('Dictionary broken Error (enableAttestationExcludeCredentials).')
+
+    @property
+    def attestationExcludeCredentialsUsers(self):
+        return self.settings.get('attestation', {}).get('excludeCredentials', {}).get('id', [])
+    @attestationExcludeCredentialsUsers.setter
+    def attestationExcludeCredentialsUsers(self, val):
         if type(val) != list:
-            raise CommonRejectedException('Option Type Error (attestationExcludeCredentials).')
+            raise CommonRejectedException('Option Type Error (attestationExcludeCredentialsUsers).')
+        if str(re.sub(r'\d', '', ''.join(val))) != '':
+            raise CommonRejectedException('Option Selection Error (attestationExcludeCredentialsUsers).')
+        if 'attestation' in self.settings:
+            if 'excludeCredentials' in self.settings['attestation']:
+                if 'id' in self.settings['attestation']['excludeCredentials']:
+                    self.settings['attestation']['excludeCredentials']['id'] = [] if (len(val) == 1 and val[0] == '') else val
+                else:
+                    raise CommonRejectedException('Dictionary broken Error (attestationExcludeCredentialsUsers).')
+            else:
+                raise CommonRejectedException('Dictionary broken Error (attestationExcludeCredentialsUsers).')
+        else:
+            raise CommonRejectedException('Dictionary broken Error (attestationExcludeCredentialsUsers).')
+
+    @property
+    def attestationExcludeCredentialsTransports(self):
+        return self.settings.get('attestation', {}).get('excludeCredentials', {}).get('transports', [])
+    @attestationExcludeCredentialsTransports.setter
+    def attestationExcludeCredentialsTransports(self, val):
+        if type(val) != list:
+            raise CommonRejectedException('Option Type Error (attestationExcludeCredentialsTransports).')
         if not set(val).issubset(self.SUPPORTED_TRANSPORTS):
-            raise CommonRejectedException('Option Selection Error (attestationExcludeCredentials).')
+            raise CommonRejectedException('Option Selection Error (attestationExcludeCredentialsTransports).')
         if 'attestation' in self.settings:
             if 'excludeCredentials' in self.settings['attestation']:
                 if 'transports' in self.settings['attestation']['excludeCredentials']:
                     self.settings['attestation']['excludeCredentials']['transports'] = [] if (len(val) == 1 and val[0] == '') else val
                 else:
-                    raise CommonRejectedException('Dictionary broken Error (attestationExcludeCredentials).')
+                    raise CommonRejectedException('Dictionary broken Error (attestationExcludeCredentialsTransports).')
             else:
-                raise CommonRejectedException('Dictionary broken Error (attestationExcludeCredentials).')
+                raise CommonRejectedException('Dictionary broken Error (attestationExcludeCredentialsTransports).')
         else:
-            raise CommonRejectedException('Dictionary broken Error (attestationExcludeCredentials).')
+            raise CommonRejectedException('Dictionary broken Error (attestationExcludeCredentialsTransports).')
 
     @property
     def attestationExtensions(self):
@@ -523,24 +605,44 @@ class WebAuthnOptions(object):
             raise CommonRejectedException('Dictionary broken Error (enableAssertionAllowCredentials).')
 
     @property
-    def assertionAllowCredentials(self):
-        return self.settings.get('assertion', {}).get('allowCredentials', {}).get('transports', [])
-    @assertionAllowCredentials.setter
-    def assertionAllowCredentials(self, val):
+    def assertionAllowCredentialsUsers(self):
+        return self.settings.get('assertion', {}).get('allowCredentials', {}).get('id', [])
+    @assertionAllowCredentialsUsers.setter
+    def assertionAllowCredentialsUsers(self, val):
         if type(val) != list:
-            raise CommonRejectedException('Option Type Error (assertionAllowCredentials).')
+            raise CommonRejectedException('Option Type Error (assertionAllowCredentialsUsers).')
+        if re.sub(r'\d', '', ''.join(val)).encode() != '':
+            raise CommonRejectedException('Option Selection Error (assertionAllowCredentialsUsers).')
+        if 'assertion' in self.settings:
+            if 'allowCredentials' in self.settings['assertion']:
+                if 'id' in self.settings['assertion']['allowCredentials']:
+                    self.settings['assertion']['allowCredentials']['id'] = [] if (len(val) == 1 and val[0] == '') else val
+                else:
+                    raise CommonRejectedException('Dictionary broken Error (assertionAllowCredentialsUsers).')
+            else:
+                raise CommonRejectedException('Dictionary broken Error (assertionAllowCredentialsUsers).')
+        else:
+            raise CommonRejectedException('Dictionary broken Error (assertionAllowCredentialsUsers).')
+
+    @property
+    def assertionAllowCredentialsTransports(self):
+        return self.settings.get('assertion', {}).get('allowCredentials', {}).get('transports', [])
+    @assertionAllowCredentialsTransports.setter
+    def assertionAllowCredentialsTransports(self, val):
+        if type(val) != list:
+            raise CommonRejectedException('Option Type Error (assertionAllowCredentialsTransports).')
         if not set(val).issubset(self.SUPPORTED_TRANSPORTS):
-            raise CommonRejectedException('Option Selection Error (assertionAllowCredentials).')
+            raise CommonRejectedException('Option Selection Error (assertionAllowCredentialsTransports).')
         if 'assertion' in self.settings:
             if 'allowCredentials' in self.settings['assertion']:
                 if 'transports' in self.settings['assertion']['allowCredentials']:
                     self.settings['assertion']['allowCredentials']['transports'] = [] if (len(val) == 1 and val[0] == '') else val
                 else:
-                    raise CommonRejectedException('Dictionary broken Error (assertionAllowCredentials).')
+                    raise CommonRejectedException('Dictionary broken Error (assertionAllowCredentialsTransports).')
             else:
-                raise CommonRejectedException('Dictionary broken Error (assertionAllowCredentials).')
+                raise CommonRejectedException('Dictionary broken Error (assertionAllowCredentialsTransports).')
         else:
-            raise CommonRejectedException('Dictionary broken Error (assertionAllowCredentials).')
+            raise CommonRejectedException('Dictionary broken Error (assertionAllowCredentialsTransports).')
 
     @property
     def assertionExtensions(self):
@@ -561,13 +663,17 @@ class WebAuthnOptions(object):
 class WebAuthnMakeCredentialOptions(object):
 
     def __init__(self,
-                 challenge,
-                 rp_name,
-                 rp_id,
-                 user_id,
-                 username,
-                 display_name,
-                 icon_url):
+                webauthn_attallow_cred_list,
+                webauthn_attexclude_cred_list,
+                challenge,
+                rp_name,
+                rp_id,
+                user_id,
+                username,
+                display_name,
+                icon_url):
+        self.webauthn_attallow_cred_list = webauthn_attallow_cred_list,
+        self.webauthn_attexclude_cred_list = webauthn_attexclude_cred_list,
         self.challenge = challenge
         self.rp_name = rp_name
         self.rp_id = rp_id
@@ -578,6 +684,9 @@ class WebAuthnMakeCredentialOptions(object):
 
     @property
     def registration_dict(self):
+        if not self.challenge:
+            raise RegistrationRejectedException('Invalid challenge.')
+
         registration_dict = {
             'challenge': self.challenge,
             'rp': {
@@ -616,22 +725,31 @@ class WebAuthnMakeCredentialOptions(object):
                 registration_dict['authenticatorSelection']['requireResidentKey'] = options.requireResidentKey
             if options.authenticatorAttachment != '':
                 registration_dict['authenticatorSelection']['authenticatorAttachment'] = options.authenticatorAttachment
-        if options.attestationAllowCredentials != []:
-            registration_dict['allowCredentials'] = [
-                {
+        
+        allow_cred_list = []
+        if options.enableAttestationAllowCredentials == 'true':
+            for credid in self.webauthn_attallow_cred_list[0]:
+                tmp_dict = {
                     'type': 'public-key',
-                    #'id': id                # TODO: Support ids of allowCredentials
+                    'id': credid
                 }
-            ]
-            registration_dict['allowCredentials'][0]['transports'] = options.attestationAllowCredentials
-        if options.attestationExcludeCredentials != []:
-            registration_dict['excludeCredentials'] = [
-                {
+                if options.attestationAllowCredentialsTransports != []:
+                    tmp_dict['transports'] = options.attestationAllowCredentialsTransports
+                allow_cred_list.append(tmp_dict)
+            registration_dict['allowCredentials'] = allow_cred_list
+
+        exclude_cred_list = []
+        if options.enableAttestationExcludeCredentials == 'true':
+            for credid in self.webauthn_attexclude_cred_list[0]:
+                tmp_dict = {
                     'type': 'public-key',
-                    #'id': id                 # TODO: Support ids of excludeCredentials
+                    'id': credid
                 }
-            ]
-            registration_dict['excludeCredentials'][0]['transports'] = options.attestationExcludeCredentials
+                if options.attestationExcludeCredentialsTransports != []:
+                    tmp_dict['transports'] = options.attestationExcludeCredentialsTransports
+                exclude_cred_list.append(tmp_dict)
+            registration_dict['excludeCredentials'] = exclude_cred_list
+
         if options.attestationExtensions != {}:
             registration_dict['extensions'] = options.attestationExtensions
 
@@ -649,19 +767,12 @@ class WebAuthnAssertionOptions(object):
         self.challenge = challenge
         self.rp_id = rp_id
 
-        self.options = WebAuthnOptions()
-        self.options.load()
-
     @property
     def assertion_dict(self):
         if not self.challenge:
             raise AuthenticationRejectedException('Invalid challenge.')
         if not isinstance(self.webauthn_user_list, list):
             raise AuthenticationRejectedException('Invalid user type.')
-        if self.options.enableAssertionAllowCredentials == 'true' and  not len(self.webauthn_user_list) > 0:
-            raise AuthenticationRejectedException('No Users.')
-        #if not self.webauthn_user_list[0].credential_id:
-        #    raise AuthenticationRejectedException('Invalid credential ID.')
 
         assertion_dict = {
             'challenge': self.challenge,
@@ -669,21 +780,23 @@ class WebAuthnAssertionOptions(object):
             'rpId': self.rp_id
         }
 
-        if self.options.enableAssertionAllowCredentials == 'true':
-            allow_cred_list = []
-            
-            for webauthn_user in self.webauthn_user_list:
-                tmp_dict = {
-                    'type': 'public-key',
-                    'id': webauthn_user.credential_id
-                }
-                if self.options.assertionAllowCredentials != []:
-                    tmp_dict['transports'] = self.options.assertionAllowCredentials
-                allow_cred_list.append(tmp_dict)
-            assertion_dict['allowCredentials'] = allow_cred_list
+        options = WebAuthnOptions()
+        options.load()
 
-        if self.options.assertionExtensions != {}:
-            assertion_dict['extensions'] = self.options.assertionExtensions
+        allow_cred_list = []
+        
+        for webauthn_user in self.webauthn_user_list:
+            tmp_dict = {
+                'type': 'public-key',
+                'id': webauthn_user.credential_id
+            }
+            if options.assertionAllowCredentialsTransports != []:
+                tmp_dict['transports'] = options.assertionAllowCredentialsTransports
+            allow_cred_list.append(tmp_dict)
+        assertion_dict['allowCredentials'] = allow_cred_list
+
+        if options.assertionExtensions != {}:
+            assertion_dict['extensions'] = options.assertionExtensions
 
         return assertion_dict
 

@@ -1,5 +1,6 @@
 import os
 import json
+import re
 
 from flask import Flask
 from flask import flash
@@ -71,7 +72,7 @@ def get_userlist():
     if request.method == 'GET':
         user_list = []
         webauthn_tools = webauthn.WebAuthnTools()
-        for u in Users.query.all():
+        for u in Users.query.order_by(Users.id).all():
             u.pub_key = webauthn_tools.format_user_pubkey(u.pub_key)
             user_list.append(Users.to_dict(u))
         return jsonify({'users': user_list})
@@ -120,6 +121,8 @@ def attestation_get_options():
 
     if username == "" or username is None:
         username = util.random_username(8)
+    if display_name == "" or display_name is None:
+        display_name = username
 
     session['register_username'] = username
     session['register_display_name'] = display_name
@@ -131,14 +134,38 @@ def attestation_get_options():
     session['challenge'] = challenge
     session['register_ukey'] = ukey
 
+    webauthn_attallow_cred_list = []
+    webauthn_attexclude_cred_list = []
+
+    options = webauthn.WebAuthnOptions()
+    options.load()
+
+    if options.enableAttestationAllowCredentials == 'true' and len(options.attestationAllowCredentialsUsers):
+        users = Users.query.filter(Users.id.in_(options.attestationAllowCredentialsUsers)).all()
+        for user in users:
+            if not user.credential_id:
+                app.logger.debug('Unknown credential ID.')
+                return make_response(jsonify({'fail': 'Unknown credential ID.'}), 401)
+            webauthn_attallow_cred_list.append(str(user.credential_id))
+
+    if options.enableAttestationExcludeCredentials == 'true' and len(options.attestationExcludeCredentialsUsers):
+        users = Users.query.filter(Users.id.in_(options.attestationExcludeCredentialsUsers)).all()
+        for user in users:
+            if not user.credential_id:
+                app.logger.debug('Unknown credential ID.')
+                return make_response(jsonify({'fail': 'Unknown credential ID.'}), 401)
+            webauthn_attexclude_cred_list.append(str(user.credential_id))
+
     make_credential_options = webauthn.WebAuthnMakeCredentialOptions(
-        challenge,
-        rp_name,
-        RP_ID,
-        ukey,
-        username,
-        display_name,
-        'https://example.com')
+        webauthn_attallow_cred_list = webauthn_attallow_cred_list,
+        webauthn_attexclude_cred_list = webauthn_attexclude_cred_list,
+        challenge = challenge,
+        rp_name = rp_name,
+        rp_id = RP_ID,
+        user_id = ukey,
+        username = username,
+        display_name = display_name,
+        icon_url = 'https://example.com')
 
     reg_dict = json.dumps(make_credential_options.registration_dict, indent=2)
     session['att_option'] = reg_dict
@@ -160,11 +187,11 @@ def assertion_get_options():
     options = webauthn.WebAuthnOptions()
     options.load()
 
-    if options.enableAssertionAllowCredentials == 'true':
-        users = Users.query.filter_by(username=username).all()
-        if len(users) == 0:
-            app.logger.debug('User does not exist.')
-            return make_response(jsonify({'fail': 'User does not exist.'}), 401)
+    if username != '' or (options.enableAssertionAllowCredentials == 'true' and len(options.assertionAllowCredentialsUsers) != 0):
+        if username != '':
+            users = Users.query.filter_by(username=username).all()
+        else:
+            users = Users.query.filter(Users.id.in_(options.assertionAllowCredentialsUsers)).all()
         for user in users:
             if not user.credential_id:
                 app.logger.debug('Unknown credential ID.')
@@ -290,8 +317,8 @@ def assertion_verify_response():
 
     user = Users.query.filter_by(credential_id=credential_id).first()
     if not user:
-        app.logger.debug('User does not found by Credential ID.')
-        return make_response(jsonify({'fail': 'User does not found by Credential ID.'}), 401)
+        app.logger.debug('Credential ID is not found.')
+        return make_response(jsonify({'fail': 'Credential ID is not found.'}), 401)
 
     webauthn_user = webauthn.WebAuthnUser(
         user.ukey,
@@ -395,11 +422,16 @@ def set_options():
     userVerification = request.form.get('userVerification')
     requireResidentKey = request.form.get('requireResidentKey')
     authenticatorAttachment = request.form.get('authenticatorAttachment')
-    attestationAllowCredentials = request.form.get('attestationAllowCredentials')
-    attestationExcludeCredentials = request.form.get('attestationExcludeCredentials')
+    enableAttestationAllowCredentials = request.form.get('enableAttestationAllowCredentials')
+    attestationAllowCredentialsUsers = request.form.get('attestationAllowCredentialsUsers')
+    attestationAllowCredentialsTransports = request.form.get('attestationAllowCredentialsTransports')
+    enableAttestationExcludeCredentials = request.form.get('enableAttestationExcludeCredentials')
+    attestationExcludeCredentialsUsers = request.form.get('attestationExcludeCredentialsUsers')
+    attestationExcludeCredentialsTransports = request.form.get('attestationExcludeCredentialsTransports')
     attestationExtensions = request.form.get('attestationExtensions', None)
     enableAssertionAllowCredentials = request.form.get('enableAssertionAllowCredentials')
-    assertionAllowCredentials = request.form.get('assertionAllowCredentials')
+    assertionAllowCredentialsUsers = request.form.get('assertionAllowCredentialsUsers')
+    assertionAllowCredentialsTransports = request.form.get('assertionAllowCredentialsTransports')
     assertionExtensions = request.form.get('assertionExtensions', None)
 
     try:
@@ -422,14 +454,30 @@ def set_options():
             options.authenticatorAttachment = authenticatorAttachment
         else:
             return jsonify({'fail': 'Option Selection Error (authenticatorAttachment).'})
-        if set(attestationAllowCredentials.split(' ')).issubset(webauthn.WebAuthnOptions.SUPPORTED_TRANSPORTS) or attestationAllowCredentials == '':
-            options.attestationAllowCredentials = attestationAllowCredentials.split(' ')
+        if enableAttestationAllowCredentials in webauthn.WebAuthnOptions.SUPPORTED_ENABLE_CREDENTIALS:
+            options.enableAttestationAllowCredentials = enableAttestationAllowCredentials
         else:
-            return jsonify({'fail': 'Option Selection Error (attestationAllowCredentials).'})
-        if set(attestationExcludeCredentials.split(' ')).issubset(webauthn.WebAuthnOptions.SUPPORTED_TRANSPORTS) or attestationExcludeCredentials == '':
-            options.attestationExcludeCredentials = attestationExcludeCredentials.split(' ')
+            return jsonify({'fail': 'Option Selection Error (enableAttestationAllowCredentials).'})
+        if re.sub(r'\d', '', re.sub(r'\s', '', attestationAllowCredentialsUsers)) == '':
+            options.attestationAllowCredentialsUsers = attestationAllowCredentialsUsers.split(' ')
         else:
-            return jsonify({'fail': 'Option Selection Error (attestationExcludeCredentials).'})
+            return jsonify({'fail': 'Option Selection Error (attestationAllowCredentialsUsers).'})
+        if set(attestationAllowCredentialsTransports.split(' ')).issubset(webauthn.WebAuthnOptions.SUPPORTED_TRANSPORTS) or attestationAllowCredentialsTransports == '':
+            options.attestationAllowCredentialsTransports = attestationAllowCredentialsTransports.split(' ')
+        else:
+            return jsonify({'fail': 'Option Selection Error (attestationAllowCredentialsTransports).'})
+        if enableAttestationExcludeCredentials in webauthn.WebAuthnOptions.SUPPORTED_ENABLE_CREDENTIALS:
+            options.enableAttestationExcludeCredentials = enableAttestationExcludeCredentials
+        else:
+            return jsonify({'fail': 'Option Selection Error (enableAttestationExcludeCredentials).'})
+        if re.sub(r'\d', '', re.sub(r'\s', '', attestationExcludeCredentialsUsers)) == '':
+            options.attestationExcludeCredentialsUsers = attestationExcludeCredentialsUsers.split(' ')
+        else:
+            return jsonify({'fail': 'Option Selection Error (attestationExcludeCredentialsUsers).'})
+        if set(attestationExcludeCredentialsTransports.split(' ')).issubset(webauthn.WebAuthnOptions.SUPPORTED_TRANSPORTS) or attestationExcludeCredentialsTransports == '':
+            options.attestationExcludeCredentialsTransports = attestationExcludeCredentialsTransports.split(' ')
+        else:
+            return jsonify({'fail': 'Option Selection Error (attestationExcludeCredentialsTransports).'})
         if attestationExtensions is not None:
             tmp_dict = {}
             for lineitem in attestationExtensions.splitlines():
@@ -444,10 +492,14 @@ def set_options():
             options.enableAssertionAllowCredentials = enableAssertionAllowCredentials
         else:
             return jsonify({'fail': 'Option Selection Error (enableAssertionAllowCredentials).'})
-        if set(assertionAllowCredentials.split(' ')).issubset(webauthn.WebAuthnOptions.SUPPORTED_TRANSPORTS) or assertionAllowCredentials == '':
-            options.assertionAllowCredentials = assertionAllowCredentials.split(' ')
+        if re.sub(r'\d', '', re.sub(r'\s', '', assertionAllowCredentialsUsers)) == '':
+            options.assertionAllowCredentialsUsers = assertionAllowCredentialsUsers.split(' ')
         else:
-            return jsonify({'fail': 'Option Selection Error (assertionAllowCredentials).'})
+            return jsonify({'fail': 'Option Selection Error (assertionAllowCredentialsUsers).'})
+        if set(assertionAllowCredentialsTransports.split(' ')).issubset(webauthn.WebAuthnOptions.SUPPORTED_TRANSPORTS) or assertionAllowCredentialsTransports == '':
+            options.assertionAllowCredentialsTransports = assertionAllowCredentialsTransports.split(' ')
+        else:
+            return jsonify({'fail': 'Option Selection Error (assertionAllowCredentialsTransports).'})
         if assertionExtensions is not None:
             tmp_dict = {}
             for lineitem in assertionExtensions.splitlines():
