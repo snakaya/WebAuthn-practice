@@ -63,7 +63,7 @@ try:
     with open(os.path.join(os.path.dirname(os.path.abspath(__name__)), '../VERSION')) as f:
         APP_VERSION = f.read()
 except IOError:
-    APP_VERSION = 'xx.xx'
+    APP_VERSION = '(?)'
 
 @app.route('/')
 def index():
