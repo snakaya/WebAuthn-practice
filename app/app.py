@@ -19,7 +19,7 @@ import util
 
 from db import db
 from context import webauthn
-from models import Users
+from models import Users, Options
 
 
 # DB Settings
@@ -49,6 +49,9 @@ TRUST_ANCHOR_DIR = 'trusted_attestation_roots'
 
 # Set Flask SecretKey
 SECRET_KEY = os.getenv('FLASK_SECRET_KEY', os.urandom(40))
+
+# Const
+CURRENT_OPTIONS_TBL_VERSION = 1
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = db_connect_URL
@@ -134,29 +137,45 @@ def attestation_get_options():
     session['challenge'] = challenge
     session['register_ukey'] = ukey
 
-    webauthn_attallow_cred_list = []
-    webauthn_attexclude_cred_list = []
+    webauthn_exclude_cred_list = []
 
-    options = webauthn.WebAuthnOptions()
-    options.load()
+    webauthn_options = webauthn.WebAuthnOptions()
+    
+    try:
+        options = Options.query.filter_by(rp_id=RP_ID).first()
+        if options is None:
+            options = Options()
+            options.rp_id = RP_ID
+            options.version = CURRENT_OPTIONS_TBL_VERSION
+            options.option_content = json.dumps(webauthn_options.get())
+            db.session.add(options)
+            db.session.commit()
+        else:
+            if options.version != CURRENT_OPTIONS_TBL_VERSION:
+                return make_response(jsonify({'fail': 'Options Table Version Error.'}), 400)
+    except Exception as e:
+        return make_response(jsonify({'fail': 'Options Database Error: {}'.format(e)}), 500)
 
-    if options.enableAttestationExcludeCredentials == 'true' and len(options.attestationExcludeCredentialsUsers):
-        users = Users.query.filter(Users.id.in_(options.attestationExcludeCredentialsUsers)).all()
+    webauthn_options.set(json.loads(options.option_content))
+
+    if webauthn_options.enableAttestationExcludeCredentials == 'true' and len(webauthn_options.attestationExcludeCredentialsUsers):
+        users = Users.query.filter(Users.id.in_(webauthn_options.attestationExcludeCredentialsUsers)).all()
         for user in users:
             if not user.credential_id:
                 app.logger.debug('Unknown credential ID.')
                 return make_response(jsonify({'fail': 'Unknown credential ID.'}), 401)
-            webauthn_attexclude_cred_list.append(str(user.credential_id))
+            webauthn_exclude_cred_list.append(str(user.credential_id))
 
     make_credential_options = webauthn.WebAuthnMakeCredentialOptions(
-        webauthn_attexclude_cred_list = webauthn_attexclude_cred_list,
-        challenge = challenge,
-        rp_name = rp_name,
-        rp_id = RP_ID,
-        user_id = ukey,
-        username = username,
-        display_name = display_name,
-        icon_url = 'https://example.com')
+        webauthn_options,
+        webauthn_exclude_cred_list,
+        challenge,
+        rp_name,
+        RP_ID,
+        ukey,
+        username,
+        display_name,
+        'https://example.com')
 
     reg_dict = json.dumps(make_credential_options.registration_dict, indent=2)
     session['att_option'] = reg_dict
@@ -175,14 +194,30 @@ def assertion_get_options():
 
     webauthn_user_list = []
 
-    options = webauthn.WebAuthnOptions()
-    options.load()
+    webauthn_options = webauthn.WebAuthnOptions()
 
-    if username != '' or (options.enableAssertionAllowCredentials == 'true' and len(options.assertionAllowCredentialsUsers) != 0):
+    try:
+        options = Options.query.filter_by(rp_id=RP_ID).first()
+        if options is None:
+            options = Options()
+            options.rp_id = RP_ID
+            options.version = CURRENT_OPTIONS_TBL_VERSION
+            options.option_content = json.dumps(webauthn_options.get())
+            db.session.add(options)
+            db.session.commit()
+        else:
+            if options.version != CURRENT_OPTIONS_TBL_VERSION:
+                return make_response(jsonify({'fail': 'Options Table Version Error.'}), 400)
+    except Exception as e:
+        return make_response(jsonify({'fail': 'Options Database Error: {}'.format(e)}), 500)
+
+    webauthn_options.set(json.loads(options.option_content))
+
+    if username != '' or (webauthn_options.enableAssertionAllowCredentials == 'true' and len(webauthn_options.assertionAllowCredentialsUsers) != 0):
         if username != '':
             users = Users.query.filter_by(username=username).all()
         else:
-            users = Users.query.filter(Users.id.in_(options.assertionAllowCredentialsUsers)).all()
+            users = Users.query.filter(Users.id.in_(webauthn_options.assertionAllowCredentialsUsers)).all()
         for user in users:
             if not user.credential_id:
                 app.logger.debug('Unknown credential ID.')
@@ -199,6 +234,7 @@ def assertion_get_options():
             webauthn_user_list.append(webauthn_user)
     
     webauthn_assertion_options = webauthn.WebAuthnAssertionOptions(
+        webauthn_options,
         webauthn_user_list,
         challenge,
         RP_ID)
@@ -393,9 +429,25 @@ def view_assertion():
 def get_options():
 
     try:
-        options = webauthn.WebAuthnOptions()
-        options.load()
-        options_dict = options.get()
+        webauthn_options = webauthn.WebAuthnOptions()
+
+        try:
+            options = Options.query.filter_by(rp_id=RP_ID).first()
+            if options is None:
+                options = Options()
+                options.rp_id = RP_ID
+                options.version = CURRENT_OPTIONS_TBL_VERSION
+                options.option_content = json.dumps(webauthn_options.get())
+                db.session.add(options)
+                db.session.commit()
+            else:
+                if options.version != CURRENT_OPTIONS_TBL_VERSION:
+                    return make_response(jsonify({'fail': 'Options Table Version Error.'}), 400)
+        except Exception as e:
+            return make_response(jsonify({'fail': 'Options Database Error: {}'.format(e)}), 500)
+
+        webauthn_options.set(json.loads(options.option_content))
+        options_dict = webauthn_options.get()
     except Exception as e:
         app.logger.debug('Options failed. Error: {}'.format(e))
         return make_response(jsonify({'fail': 'Options failed. Error: {}'.format(e)}), 500)
@@ -420,35 +472,51 @@ def set_options():
     assertionExtensions = request.form.get('assertionExtensions', None)
 
     try:
-        options = webauthn.WebAuthnOptions()
-        options.load()
+        webauthn_options = webauthn.WebAuthnOptions()
+
+        try:
+            options = Options.query.filter_by(rp_id=RP_ID).first()
+            if options is None:
+                options = Options()
+                options.rp_id = RP_ID
+                options.version = CURRENT_OPTIONS_TBL_VERSION
+                options.option_content = json.dumps(webauthn_options.get())
+                db.session.add(options)
+                db.session.commit()
+            else:
+                if options.version != CURRENT_OPTIONS_TBL_VERSION:
+                    return make_response(jsonify({'fail': 'Options Table Version Error.'}), 400)
+        except Exception as e:
+            return make_response(jsonify({'fail': 'Options Database Error: {}'.format(e)}), 500)
+
+        webauthn_options.set(json.loads(options.option_content))
 
         if conveyancePreference in webauthn.WebAuthnOptions.SUPPORTED_CONVEYANCE_PREFARENCE:
-            options.conveyancePreference = conveyancePreference
+            webauthn_options.conveyancePreference = conveyancePreference
         else:
             return make_response(jsonify({'fail': 'Option Selection Error (conveyancePreference).'}), 400)
         if userVerification in webauthn.WebAuthnOptions.SUPPORTED_AUTHENTICATIONSELECTION_USERVERIFICATION:
-            options.userVerification = userVerification
+            webauthn_options.userVerification = userVerification
         else:
             return make_response(jsonify({'fail': 'Option Selection Error (userVerification).'}), 400)
         if requireResidentKey in webauthn.WebAuthnOptions.SUPPORTED_REQUIRE_REDIDENTKEY:
-            options.requireResidentKey = requireResidentKey
+            webauthn_options.requireResidentKey = requireResidentKey
         else:
             return make_response(jsonify({'fail': 'Option Selection Error (requireResidentKey).'}), 400)
         if authenticatorAttachment in webauthn.WebAuthnOptions.SUPPORTED_AUTHENTICATIONSELECTION_ATTACHIMENT or authenticatorAttachment == '':
-            options.authenticatorAttachment = authenticatorAttachment
+            webauthn_options.authenticatorAttachment = authenticatorAttachment
         else:
             return make_response(jsonify({'fail': 'Option Selection Error (authenticatorAttachment).'}), 400)
         if enableAttestationExcludeCredentials in webauthn.WebAuthnOptions.SUPPORTED_ENABLE_CREDENTIALS:
-            options.enableAttestationExcludeCredentials = enableAttestationExcludeCredentials
+            webauthn_options.enableAttestationExcludeCredentials = enableAttestationExcludeCredentials
         else:
             return make_response(jsonify({'fail': 'Option Selection Error (enableAttestationExcludeCredentials).'}), 400)
         if re.sub(r'\d', '', re.sub(r'\s', '', attestationExcludeCredentialsUsers)) == '':
-            options.attestationExcludeCredentialsUsers = attestationExcludeCredentialsUsers.split(' ')
+            webauthn_options.attestationExcludeCredentialsUsers = attestationExcludeCredentialsUsers.split(' ')
         else:
             return make_response(jsonify({'fail': 'Option Selection Error (attestationExcludeCredentialsUsers).'}), 400)
         if set(attestationExcludeCredentialsTransports.split(' ')).issubset(webauthn.WebAuthnOptions.SUPPORTED_TRANSPORTS) or attestationExcludeCredentialsTransports == '':
-            options.attestationExcludeCredentialsTransports = attestationExcludeCredentialsTransports.split(' ')
+            webauthn_options.attestationExcludeCredentialsTransports = attestationExcludeCredentialsTransports.split(' ')
         else:
             return make_response(jsonify({'fail': 'Option Selection Error (attestationExcludeCredentialsTransports).'}), 400)
         if attestationExtensions is not None:
@@ -458,19 +526,19 @@ def set_options():
                 if len(item) == 2:
                     tmp_dict[item[0]] = item[1]
             if len(tmp_dict) == len(attestationExtensions.splitlines()):
-                options.attestationExtensions = tmp_dict
+                webauthn_options.attestationExtensions = tmp_dict
             else:
                 return make_response(jsonify({'fail': 'Option Format Error (attestationExtensions).'}), 400)
         if enableAssertionAllowCredentials in webauthn.WebAuthnOptions.SUPPORTED_ENABLE_CREDENTIALS:
-            options.enableAssertionAllowCredentials = enableAssertionAllowCredentials
+            webauthn_options.enableAssertionAllowCredentials = enableAssertionAllowCredentials
         else:
             return make_response(jsonify({'fail': 'Option Selection Error (enableAssertionAllowCredentials).'}), 400)
         if re.sub(r'\d', '', re.sub(r'\s', '', assertionAllowCredentialsUsers)) == '':
-            options.assertionAllowCredentialsUsers = assertionAllowCredentialsUsers.split(' ')
+            webauthn_options.assertionAllowCredentialsUsers = assertionAllowCredentialsUsers.split(' ')
         else:
             return make_response(jsonify({'fail': 'Option Selection Error (assertionAllowCredentialsUsers).'}), 400)
         if set(assertionAllowCredentialsTransports.split(' ')).issubset(webauthn.WebAuthnOptions.SUPPORTED_TRANSPORTS) or assertionAllowCredentialsTransports == '':
-            options.assertionAllowCredentialsTransports = assertionAllowCredentialsTransports.split(' ')
+            webauthn_options.assertionAllowCredentialsTransports = assertionAllowCredentialsTransports.split(' ')
         else:
             return make_response(jsonify({'fail': 'Option Selection Error (assertionAllowCredentialsTransports).'}), 400)
         if assertionExtensions is not None:
@@ -480,15 +548,20 @@ def set_options():
                 if len(item) == 2:
                     tmp_dict[item[0]] = item[1]
             if len(tmp_dict) == len(assertionExtensions.splitlines()):
-                options.assertionExtensions = tmp_dict
+                webauthn_options.assertionExtensions = tmp_dict
             else:
                 return make_response(jsonify({'fail': 'Option Format Error (assertionExtensions).'}), 400)
-
-        options.save()
 
     except Exception as e:
         app.logger.debug('Options failed. Error: {}'.format(e))
         return make_response(jsonify({'fail': 'Options failed. Error: {}'.format(e)}), 500)
+
+    try:
+        options.option_content = json.dumps(webauthn_options.get())
+        db.session.add(options)
+        db.session.commit()
+    except Exception as e:
+        return make_response(jsonify({'fail': 'Options Database Error: {}'.format(e)}), 500)
     
     return make_response(jsonify({'success': 'Options successfully saved.'}), 200)
 

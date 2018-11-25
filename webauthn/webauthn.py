@@ -335,8 +335,7 @@ class WebAuthnOptions(object):
     )
 
     def __init__(self):
-        self.settings = {
-            'version' : '1',
+        self.settings = {                            # Initial Data.
             'attestation' : {
                 'conveyancePreference': '',          # 'none', 'indirect', 'direct'
                 'authenticatorSelection': {
@@ -360,25 +359,16 @@ class WebAuthnOptions(object):
                 'extensions': {}
             }
         }
-
-    def save(self):
-        try:
-            with open(self._options_filename, 'w') as f:
-                json.dump(self.settings, f)
-        except Exception as e:
-            raise CommonRejectedException('Options Save Error: {} .'.format(e))
-    
-    def load(self):
-        if not os.path.isfile(self._options_filename):
-            self.save()
-        with open(self._options_filename, 'r') as f:
-            tmpsettings = json.load(f)
-        if tmpsettings['version'] != '1':
-            raise CommonRejectedException('Options Incorrect Version Error.')
-        self.settings = tmpsettings
     
     def get(self):
         return self.settings
+
+    def set(self, content):
+        # TODO: check tree-structure in detail.
+        try:
+            self.settings = content
+        except Exception as e:
+            raise CommonRejectedException('Options Setting Error: {} .'.format(e))
 
 
     @property
@@ -600,7 +590,8 @@ class WebAuthnOptions(object):
 class WebAuthnMakeCredentialOptions(object):
 
     def __init__(self,
-                webauthn_attexclude_cred_list,
+                webauthn_options,
+                webauthn_exclude_cred_list,
                 challenge,
                 rp_name,
                 rp_id,
@@ -608,7 +599,8 @@ class WebAuthnMakeCredentialOptions(object):
                 username,
                 display_name,
                 icon_url):
-        self.webauthn_attexclude_cred_list = webauthn_attexclude_cred_list,
+        self.webauthn_options = webauthn_options,
+        self.webauthn_exclude_cred_list = webauthn_exclude_cred_list,
         self.challenge = challenge
         self.rp_name = rp_name
         self.rp_id = rp_id
@@ -647,34 +639,31 @@ class WebAuthnMakeCredentialOptions(object):
             'timeout': 60000,  # 1 min.
         }
 
-        options = WebAuthnOptions()
-        options.load()
-
-        if options.conveyancePreference != '':
-            registration_dict['attestation'] = options.conveyancePreference
-        if options.userVerification != '' or options.requireResidentKey != '' or options.authenticatorAttachment != '':
+        if self.webauthn_options[0].conveyancePreference != '':
+            registration_dict['attestation'] = self.webauthn_options[0].conveyancePreference
+        if self.webauthn_options[0].userVerification != '' or self.webauthn_options[0].requireResidentKey != '' or self.webauthn_options[0].authenticatorAttachment != '':
             registration_dict['authenticatorSelection'] = {}
-            if options.userVerification != '':
-                registration_dict['authenticatorSelection']['userVerification'] = options.userVerification
-            if options.requireResidentKey != '':
-                registration_dict['authenticatorSelection']['requireResidentKey'] = options.requireResidentKey
-            if options.authenticatorAttachment != '':
-                registration_dict['authenticatorSelection']['authenticatorAttachment'] = options.authenticatorAttachment
+            if self.webauthn_options[0].userVerification != '':
+                registration_dict['authenticatorSelection']['userVerification'] = self.webauthn_options[0].userVerification
+            if self.webauthn_options[0].requireResidentKey != '':
+                registration_dict['authenticatorSelection']['requireResidentKey'] = self.webauthn_options[0].requireResidentKey
+            if self.webauthn_options[0].authenticatorAttachment != '':
+                registration_dict['authenticatorSelection']['authenticatorAttachment'] = self.webauthn_options[0].authenticatorAttachment
 
         exclude_cred_list = []
-        if options.enableAttestationExcludeCredentials == 'true':
-            for credid in self.webauthn_attexclude_cred_list[0]:
+        if self.webauthn_options[0].enableAttestationExcludeCredentials == 'true':
+            for credid in self.webauthn_exclude_cred_list[0]:
                 tmp_dict = {
                     'type': 'public-key',
                     'id': credid
                 }
-                if options.attestationExcludeCredentialsTransports != []:
-                    tmp_dict['transports'] = options.attestationExcludeCredentialsTransports
+                if self.webauthn_options[0].attestationExcludeCredentialsTransports != []:
+                    tmp_dict['transports'] = self.webauthn_options[0].attestationExcludeCredentialsTransports
                 exclude_cred_list.append(tmp_dict)
             registration_dict['excludeCredentials'] = exclude_cred_list
 
-        if options.attestationExtensions != {}:
-            registration_dict['extensions'] = options.attestationExtensions
+        if self.webauthn_options[0].attestationExtensions != {}:
+            registration_dict['extensions'] = self.webauthn_options[0].attestationExtensions
 
         return registration_dict
 
@@ -685,7 +674,8 @@ class WebAuthnMakeCredentialOptions(object):
 
 class WebAuthnAssertionOptions(object):
 
-    def __init__(self, webauthn_user_list, challenge, rp_id):
+    def __init__(self, webauthn_options, webauthn_user_list, challenge, rp_id):
+        self.webauthn_options = webauthn_options
         self.webauthn_user_list = webauthn_user_list
         self.challenge = challenge
         self.rp_id = rp_id
@@ -703,23 +693,20 @@ class WebAuthnAssertionOptions(object):
             'rpId': self.rp_id
         }
 
-        options = WebAuthnOptions()
-        options.load()
-
         allow_cred_list = []
-        
+
         for webauthn_user in self.webauthn_user_list:
             tmp_dict = {
                 'type': 'public-key',
                 'id': webauthn_user.credential_id
             }
-            if options.assertionAllowCredentialsTransports != []:
-                tmp_dict['transports'] = options.assertionAllowCredentialsTransports
+            if self.webauthn_options.assertionAllowCredentialsTransports != []:
+                tmp_dict['transports'] = self.webauthn_options.assertionAllowCredentialsTransports
             allow_cred_list.append(tmp_dict)
         assertion_dict['allowCredentials'] = allow_cred_list
 
-        if options.assertionExtensions != {}:
-            assertion_dict['extensions'] = options.assertionExtensions
+        if self.webauthn_options.assertionExtensions != {}:
+            assertion_dict['extensions'] = self.webauthn_options.assertionExtensions
 
         return assertion_dict
 

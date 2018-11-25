@@ -37,3 +37,12 @@ class Users(db.Model):
 
     def __repr__(self):
         return '<User %r %r>' % (self.display_name, self.username)
+
+
+class Options(db.Model):
+    rp_id = db.Column(db.String(253), primary_key=True)
+    version = db.Column(db.Integer, default=0)
+    option_content = db.Column(db.Text, unique=False, nullable=False)
+
+    def __repr__(self):
+        return '<Options RP=%r, version=%r>' % (self.rp_id, self.version)
