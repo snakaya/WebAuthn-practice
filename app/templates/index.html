@@ -282,42 +282,6 @@
                             </select>
                         </div>
                         <div class="custom-control custom-checkbox my-4">
-                            <input type="checkbox" class="custom-control-input" id="enableAttestationAllowCredentialsCheck">
-                            <label class="custom-control-label" for="enableAttestationAllowCredentialsCheck">Enable AllowCredentials</label>
-                        </div>
-                        <div class="form-row">
-                            <label class="col-12 col-md-12" for="allowUsersText">AllowCredentials Users(ids)</label>
-                            <div class="form-group col-8 col-md-8">
-                                <input type="text" class="form-control" id="allowUsersText" aria-describedby="allowUsersHelp" placeholder="Enter User's ids values">
-                            </div>
-                            <div class="form-group col-auto col-md-auto">
-                                <button id="allowUsersAddBtn" type="button" class="btn btn-info"><i class="material-icons align-middle ">arrow_back_ios</i></button>
-                            </div>
-                            <div class="form-group col col-md">
-                                <select id="allowUsersSelect" class="form-control">
-                                </select>
-                            </div>
-                            <small class="col-12 col-md-12 form-text text-muted">Multi values must be separated by space.</small>
-                        </div>
-                        <div class="form-row">
-                            <label class="col-12 col-md-12" for="allowTransportsText">AllowCredentials transports</label>
-                            <div class="form-group col-8 col-md-8">
-                                <input type="text" class="form-control" id="allowTransportsText" aria-describedby="allowTransportsHelp" placeholder="Enter transports values">
-                            </div>
-                            <div class="form-group col-auto col-md-auto">
-                                <button id="allowTransportsAddBtn" type="button" class="btn btn-info"><i class="material-icons align-middle ">arrow_back_ios</i></button>
-                            </div>
-                            <div class="form-group col col-md">
-                                <select id="allowTransportsSelect" class="form-control">
-                                    <option value="usb">usb</option>
-                                    <option value="nfc">nfc</option>
-                                    <option value="ble">ble</option>
-                                    <option value="internal">internal</option>
-                                </select>
-                            </div>
-                            <small class="col-12 col-md-12 form-text text-muted">Multi values must be separated by space.</small>
-                        </div>
-                        <div class="custom-control custom-checkbox my-4">
                             <input type="checkbox" class="custom-control-input" id="enableAttestationExcludeCredentialsCheck">
                             <label class="custom-control-label" for="enableAttestationExcludeCredentialsCheck">Enable ExcludeCredentials</label>
                         </div>
@@ -365,29 +329,29 @@
                             <label class="custom-control-label" for="enableAssertionAllowCredentialsCheck">Enable AllowCredentials</label>
                         </div>
                         <div class="form-row">
-                            <label class="col-12 col-md-12" for="acceptableUsersText">AllowCredentials Users(ids)</label>
+                            <label class="col-12 col-md-12" for="allowUsersText">AllowCredentials Users(ids)</label>
                             <div class="form-group col-8 col-md-8">
-                                <input type="text" class="form-control" id="acceptableUsersText" aria-describedby="acceptableUsersHelp" placeholder="Enter User's ids values">
+                                <input type="text" class="form-control" id="allowUsersText" aria-describedby="allowUsersHelp" placeholder="Enter Allow User's ids values">
                             </div>
                             <div class="form-group col-auto col-md-auto">
-                                <button id="acceptableUsersAddBtn" type="button" class="btn btn-info"><i class="material-icons align-middle ">arrow_back_ios</i></button>
+                                <button id="allowUsersAddBtn" type="button" class="btn btn-info"><i class="material-icons align-middle ">arrow_back_ios</i></button>
                             </div>
                             <div class="form-group col col-md">
-                                <select id="acceptableUsersSelect" class="form-control">
+                                <select id="allowUsersSelect" class="form-control">
                                 </select>
                             </div>
                             <small class="col-12 col-md-12 form-text text-muted">Multi values must be separated by space.</small>
                         </div>
                         <div class="form-row">
-                            <label class="col-12 col-md-12" for="acceptableTransportsText">AllowCredentials transports</label>
+                            <label class="col-12 col-md-12" for="allowTransportsText">AllowCredentials transports</label>
                             <div class="form-group col-8 col-md-8">
-                                <input type="text" class="form-control" id="acceptableTransportsText" aria-describedby="acceptableTransportsHelp" placeholder="Enter transports values">
+                                <input type="text" class="form-control" id="allowTransportsText" aria-describedby="allowTransportsHelp" placeholder="Enter transports values">
                             </div>
                             <div class="form-group col-auto col-md-auto">
-                                <button id="acceptableTransportsAddBtn" type="button" class="btn btn-info"><i class="material-icons align-middle ">arrow_back_ios</i></button>
+                                <button id="allowTransportsAddBtn" type="button" class="btn btn-info"><i class="material-icons align-middle ">arrow_back_ios</i></button>
                             </div>
                             <div class="form-group col col-md">
-                                <select id="acceptableTransportsSelect" class="form-control">
+                                <select id="allowTransportsSelect" class="form-control">
                                     <option value="usb">usb</option>
                                     <option value="nfc">nfc</option>
                                     <option value="ble">ble</option>
@@ -445,7 +409,7 @@
             .join("");
     }
 
-    async function verifyNewCredential(newCredential, stringlyNewCredential) {
+    function verifyNewCredential(newCredential, stringlyNewCredential) {
         let attObj = new Uint8Array(
             newCredential.response.attestationObject);
         let clientDataJSON = new Uint8Array(
@@ -461,7 +425,7 @@
             attObj: b64enc(attObj),
             clientData: b64enc(clientDataJSON),
             registrationClientExtensions: JSON.stringify(registrationClientExtensions)
-        }).done(await function(response){
+        }).done(function(response){
             console.log(response);
             if(response.success) {
                 $('#infomsg').text(response.success);
@@ -1168,13 +1132,6 @@
                 $('#userVerificationSelect').val(data.attestation.authenticatorSelection.userVerification);
                 $('#requireResidentKeySelect').val(data.attestation.authenticatorSelection.requireResidentKey.toString());
                 $('#authenticatorAttachmentSelect').val(data.attestation.authenticatorSelection.authenticatorAttachment);
-                if(data.attestation.allowCredentials.enabled == 'true') {
-                    $('#enableAttestationAllowCredentialsCheck').prop('checked', true);
-                } else {
-                    $('#enableAttestationAllowCredentialsCheck').prop('checked', false);
-                }
-                $('#allowUsersText').val(data.attestation.allowCredentials.id.join(' '));
-                $('#allowTransportsText').val(data.attestation.allowCredentials.transports.join(' '));
                 if(data.attestation.excludeCredentials.enabled == 'true') {
                     $('#enableAttestationExcludeCredentialsCheck').prop('checked', true);
                 } else {
@@ -1191,14 +1148,13 @@
                 } else {
                     $('#attestationExtensionsTextArea').val('');
                 }
-
                 if(data.assertion.allowCredentials.enabled == 'true') {
                     $('#enableAssertionAllowCredentialsCheck').prop('checked', true);
                 } else {
                     $('#enableAssertionAllowCredentialsCheck').prop('checked', false);
                 }
-                $('#acceptableUsersText').val(data.assertion.allowCredentials.id.join(' '));
-                $('#acceptableTransportsText').val(data.assertion.allowCredentials.transports.join(' '));
+                $('#allowUsersText').val(data.assertion.allowCredentials.id.join(' '));
+                $('#allowTransportsText').val(data.assertion.allowCredentials.transports.join(' '));
                 if(Object.keys(data.assertion.extensions).length > 0) {
                     var tmparr = new Array();
                     for(var k in data.assertion.extensions) {
@@ -1228,16 +1184,13 @@
             var userVerification = $('#userVerificationSelect').val();
             var requireResidentKey = $('#requireResidentKeySelect').val();
             var authenticatorAttachment = $('#authenticatorAttachmentSelect').val();
-            var enableAttestationAllowCredentials = ($('#enableAttestationAllowCredentialsCheck').prop('checked')) ? 'true' : 'false';
-            var attestationAllowCredentialsUsers = $('#allowUsersText').val();
-            var attestationAllowCredentialsTransports = $('#allowTransportsText').val();
             var enableAttestationExcludeCredentials = ($('#enableAttestationExcludeCredentialsCheck').prop('checked')) ? 'true' : 'false';
             var attestationExcludeCredentialsUsers = $('#excludeUsersText').val();
             var attestationExcludeCredentialsTransports = $('#excludeTransportsText').val();
             var attestationExtensions = $('#attestationExtensionsTextArea').val();
             var enableAssertionAllowCredentials = ($('#enableAssertionAllowCredentialsCheck').prop('checked')) ? 'true' : 'false';
-            var assertionAllowCredentialsUsers = $('#acceptableUsersText').val();
-            var assertionAllowCredentialsTransports = $('#acceptableTransportsText').val();
+            var assertionAllowCredentialsUsers = $('#allowUsersText').val();
+            var assertionAllowCredentialsTransports = $('#allowTransportsText').val();
             var assertionExtensions = $('#assertionExtensionsTextArea').val();
 
             $.post("/options", {
@@ -1245,9 +1198,6 @@
                 userVerification: userVerification,
                 requireResidentKey: requireResidentKey,
                 authenticatorAttachment: authenticatorAttachment,
-                enableAttestationAllowCredentials: enableAttestationAllowCredentials,
-                attestationAllowCredentialsUsers: attestationAllowCredentialsUsers,
-                attestationAllowCredentialsTransports: attestationAllowCredentialsTransports,
                 enableAttestationExcludeCredentials: enableAttestationExcludeCredentials,
                 attestationExcludeCredentialsUsers: attestationExcludeCredentialsUsers,
                 attestationExcludeCredentialsTransports: attestationExcludeCredentialsTransports,
@@ -1275,31 +1225,6 @@
             });
         });
 
-        $("#allowUsersAddBtn").on('click', function (e) {
-            if($("#allowUsersText").val() == "") {
-                $("#allowUsersText").val($("#allowUsersSelect option:selected").val());
-            } else {
-                var sc = $("#allowUsersText").val().split(' ');
-                if($.inArray($("#allowUsersSelect option:selected").val(), sc) == -1) {
-                    sc.push($("#allowUsersSelect option:selected").val());
-                    sc.sort(function(m,n){return m - n;});
-                    $("#allowUsersText").val(sc.join(' '));
-                }
-            }
-        });
-
-        $("#allowTransportsAddBtn").on('click', function (e) {
-            if($("#allowTransportsText").val() == "") {
-                $("#allowTransportsText").val($("#allowTransportsSelect option:selected").val());
-            } else {
-                var sc = $("#allowTransportsText").val().split(' ');
-                if($.inArray($("#allowTransportsSelect option:selected").val(), sc) == -1) {
-                    sc.push($("#allowTransportsSelect option:selected").val());
-                    $("#allowTransportsText").val(sc.join(' '));
-                }
-            }
-        });
-
         $("#excludeUsersAddBtn").on('click', function (e) {
             if($("#excludeUsersText").val() == "") {
                 $("#excludeUsersText").val($("#excludeUsersSelect option:selected").val());
@@ -1325,27 +1250,27 @@
             }
         });
 
-        $("#acceptableUsersAddBtn").on('click', function (e) {
-            if($("#acceptableUsersText").val() == "") {
-                $("#acceptableUsersText").val($("#acceptableUsersSelect option:selected").val());
+        $("#allowUsersAddBtn").on('click', function (e) {
+            if($("#allowUsersText").val() == "") {
+                $("#allowUsersText").val($("#allowUsersSelect option:selected").val());
             } else {
-                var sc = $("#acceptableUsersText").val().split(' ');
-                if($.inArray($("#acceptableUsersSelect option:selected").val(), sc) == -1) {
-                    sc.push($("#acceptableUsersSelect option:selected").val());
+                var sc = $("#allowUsersText").val().split(' ');
+                if($.inArray($("#allowUsersSelect option:selected").val(), sc) == -1) {
+                    sc.push($("#allowUsersSelect option:selected").val());
                     sc.sort(function(m,n){return m - n;});
-                    $("#acceptableUsersText").val(sc.join(' '));
+                    $("#allowUsersText").val(sc.join(' '));
                 }
             }
         });
 
-        $("#acceptableTransportsAddBtn").on('click', function (e) {
-            if($("#acceptableTransportsText").val() == "") {
-                $("#acceptableTransportsText").val($("#acceptableTransportsSelect option:selected").val());
+        $("#allowTransportsAddBtn").on('click', function (e) {
+            if($("#allowTransportsText").val() == "") {
+                $("#allowTransportsText").val($("#allowTransportsSelect option:selected").val());
             } else {
-                var sc = $("#acceptableTransportsText").val().split(' ');
-                if($.inArray($("#acceptableTransportsSelect option:selected").val(), sc) == -1) {
-                    sc.push($("#acceptableTransportsSelect option:selected").val());
-                    $("#acceptableTransportsText").val(sc.join(' '));
+                var sc = $("#allowTransportsText").val().split(' ');
+                if($.inArray($("#allowTransportsSelect option:selected").val(), sc) == -1) {
+                    sc.push($("#allowTransportsSelect option:selected").val());
+                    $("#allowTransportsText").val(sc.join(' '));
                 }
             }
         });

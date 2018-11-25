@@ -140,14 +140,6 @@ def attestation_get_options():
     options = webauthn.WebAuthnOptions()
     options.load()
 
-    if options.enableAttestationAllowCredentials == 'true' and len(options.attestationAllowCredentialsUsers):
-        users = Users.query.filter(Users.id.in_(options.attestationAllowCredentialsUsers)).all()
-        for user in users:
-            if not user.credential_id:
-                app.logger.debug('Unknown credential ID.')
-                return make_response(jsonify({'fail': 'Unknown credential ID.'}), 401)
-            webauthn_attallow_cred_list.append(str(user.credential_id))
-
     if options.enableAttestationExcludeCredentials == 'true' and len(options.attestationExcludeCredentialsUsers):
         users = Users.query.filter(Users.id.in_(options.attestationExcludeCredentialsUsers)).all()
         for user in users:
@@ -157,7 +149,6 @@ def attestation_get_options():
             webauthn_attexclude_cred_list.append(str(user.credential_id))
 
     make_credential_options = webauthn.WebAuthnMakeCredentialOptions(
-        webauthn_attallow_cred_list = webauthn_attallow_cred_list,
         webauthn_attexclude_cred_list = webauthn_attexclude_cred_list,
         challenge = challenge,
         rp_name = rp_name,
@@ -419,9 +410,6 @@ def set_options():
     userVerification = request.form.get('userVerification')
     requireResidentKey = request.form.get('requireResidentKey')
     authenticatorAttachment = request.form.get('authenticatorAttachment')
-    enableAttestationAllowCredentials = request.form.get('enableAttestationAllowCredentials')
-    attestationAllowCredentialsUsers = request.form.get('attestationAllowCredentialsUsers')
-    attestationAllowCredentialsTransports = request.form.get('attestationAllowCredentialsTransports')
     enableAttestationExcludeCredentials = request.form.get('enableAttestationExcludeCredentials')
     attestationExcludeCredentialsUsers = request.form.get('attestationExcludeCredentialsUsers')
     attestationExcludeCredentialsTransports = request.form.get('attestationExcludeCredentialsTransports')
@@ -451,18 +439,6 @@ def set_options():
             options.authenticatorAttachment = authenticatorAttachment
         else:
             return make_response(jsonify({'fail': 'Option Selection Error (authenticatorAttachment).'}), 400)
-        if enableAttestationAllowCredentials in webauthn.WebAuthnOptions.SUPPORTED_ENABLE_CREDENTIALS:
-            options.enableAttestationAllowCredentials = enableAttestationAllowCredentials
-        else:
-            return make_response(jsonify({'fail': 'Option Selection Error (enableAttestationAllowCredentials).'}), 400)
-        if re.sub(r'\d', '', re.sub(r'\s', '', attestationAllowCredentialsUsers)) == '':
-            options.attestationAllowCredentialsUsers = attestationAllowCredentialsUsers.split(' ')
-        else:
-            return make_response(jsonify({'fail': 'Option Selection Error (attestationAllowCredentialsUsers).'}), 400)
-        if set(attestationAllowCredentialsTransports.split(' ')).issubset(webauthn.WebAuthnOptions.SUPPORTED_TRANSPORTS) or attestationAllowCredentialsTransports == '':
-            options.attestationAllowCredentialsTransports = attestationAllowCredentialsTransports.split(' ')
-        else:
-            return make_response(jsonify({'fail': 'Option Selection Error (attestationAllowCredentialsTransports).'}), 400)
         if enableAttestationExcludeCredentials in webauthn.WebAuthnOptions.SUPPORTED_ENABLE_CREDENTIALS:
             options.enableAttestationExcludeCredentials = enableAttestationExcludeCredentials
         else:
