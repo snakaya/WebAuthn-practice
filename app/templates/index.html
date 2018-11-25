@@ -8,6 +8,7 @@
     <meta name="author" content="LOOSEDAYS S.Nakaya">
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.2/css/bootstrap.min.css" integrity="sha384-Smlep5jCw/wG7hdkwQ/Z5nLIefveQRIY9nfy6xoR1uRYBtpZgI6339F5dgvm/e9B" crossorigin="anonymous"/>
     <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.6-rc.0/css/select2.min.css"/>
 	<link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}"/>
     <title>WebAuthn practice</title>
 </head>
@@ -89,7 +90,7 @@
         </div>
 
         <div class="container usersPanel" id="usersModal" style="display: none;">
-            <a href="#" id="clearUsersLink" class="text-light disabled" disabled><svg id="clearUsersIcon" class="clearIcon float-right" xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24"><path fill="none" d="M0 0h24v24H0V0z"/><path d="M16 9v10H8V9h8m-1.5-6h-5l-1 1H5v2h14V4h-3.5l-1-1zM18 7H6v12c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7z"/></svg></a>
+            <a href="#" id="clearUsersLink" class="" disabled><svg id="clearUsersIcon" class="clearIcon float-right text-light disabled" xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24"><path fill="none" d="M0 0h24v24H0V0z"/><path d="M16 9v10H8V9h8m-1.5-6h-5l-1 1H5v2h14V4h-3.5l-1-1zM18 7H6v12c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7z"/></svg></a>
             <h2 class="text-center">Registered Users</h2>
             <div class="table-responsive"></div>
                 <table class="table table-hover" style="table-layout:fixed;width:100%;">
@@ -285,37 +286,22 @@
                             <input type="checkbox" class="custom-control-input" id="enableAttestationExcludeCredentialsCheck">
                             <label class="custom-control-label" for="enableAttestationExcludeCredentialsCheck">Enable ExcludeCredentials</label>
                         </div>
-                        <div class="form-row">
-                            <label class="col-12 col-md-12" for="excludeUsersText">ExcludeCredentials Users(ids)</label>
-                            <div class="form-group col-8 col-md-8">
-                                <input type="text" class="form-control" id="excludeUsersText" aria-describedby="excludeUsersHelp" placeholder="Enter User's ids values">
-                            </div>
-                            <div class="form-group col-auto col-md-auto">
-                                <button id="excludeUsersAddBtn" type="button" class="btn btn-info"><i class="material-icons align-middle ">arrow_back_ios</i></button>
-                            </div>
-                            <div class="form-group col col-md">
-                                <select id="excludeUsersSelect" class="form-control">
-                                </select>
-                            </div>
-                            <small class="col-12 col-md-12 form-text text-muted">Multi values must be separated by space.</small>
+                        <div class="form-group">
+                            <a href="#" id="excludeUsersClearBtn" class="clearSelectLink material-icons float-right text-danger" data-targetselect="excludeUsersSelect">clear</a>
+                            <label for="excludeUsersSelect">ExcludeCredentials UserName(id)</label>
+                            <select id="excludeUsersSelect" class="form-control d-inlineblock select2Select" multiple="multiple">     
+                            </select>
+                            
                         </div>
-                        <div class="form-row">
-                            <label class="col-12 col-md-12" for="excludeTransportsText">ExcludeCredentials transports</label>
-                            <div class="form-group col-8 col-md-8">
-                                <input type="text" class="form-control" id="excludeTransportsText" aria-describedby="excludeTransportsHelp" placeholder="Enter transports values">
-                            </div>
-                            <div class="form-group col-auto col-md-auto">
-                                <button id="excludeTransportsAddBtn" type="button" class="btn btn-info"><i class="material-icons align-middle ">arrow_back_ios</i></button>
-                            </div>
-                            <div class="form-group col col-md">
-                                <select id="excludeTransportsSelect" class="form-control">
-                                    <option value="usb">usb</option>
-                                    <option value="nfc">nfc</option>
-                                    <option value="ble">ble</option>
-                                    <option value="internal">internal</option>
-                                </select>
-                            </div>
-                            <small class="col-12 col-md-12 form-text text-muted">Multi values must be separated by space.</small>
+                        <div class="form-group">
+                            <a href="#" id="excludeTransportsClearBtn" class="clearSelectLink material-icons float-right text-danger" data-targetselect="excludeTransportsSelect">clear</a>
+                            <label for="excludeTransportsSelect">ExcludeCredentials transports</label>
+                            <select id="excludeTransportsSelect" class="form-control select2Select" multiple="multiple">
+                                <option value="usb">usb</option>
+                                <option value="nfc">nfc</option>
+                                <option value="ble">ble</option>
+                                <option value="internal">internal</option>
+                            </select>
                         </div>
                         <div class="form-group">
                             <label for="attestationExtensionsTextArea">Option Parameters on Attestation</label>
@@ -328,37 +314,21 @@
                             <input type="checkbox" class="custom-control-input" id="enableAssertionAllowCredentialsCheck">
                             <label class="custom-control-label" for="enableAssertionAllowCredentialsCheck">Enable AllowCredentials</label>
                         </div>
-                        <div class="form-row">
-                            <label class="col-12 col-md-12" for="allowUsersText">AllowCredentials Users(ids)</label>
-                            <div class="form-group col-8 col-md-8">
-                                <input type="text" class="form-control" id="allowUsersText" aria-describedby="allowUsersHelp" placeholder="Enter Allow User's ids values">
-                            </div>
-                            <div class="form-group col-auto col-md-auto">
-                                <button id="allowUsersAddBtn" type="button" class="btn btn-info"><i class="material-icons align-middle ">arrow_back_ios</i></button>
-                            </div>
-                            <div class="form-group col col-md">
-                                <select id="allowUsersSelect" class="form-control">
-                                </select>
-                            </div>
-                            <small class="col-12 col-md-12 form-text text-muted">Multi values must be separated by space.</small>
+                        <div class="form-group">
+                            <a href="#" class="clearSelectLink material-icons float-right text-danger" data-targetselect="allowUsersSelect">clear</a>
+                            <label for="allowUsersSelect">AllowCredentials UserName(id)</label>
+                            <select id="allowUsersSelect" class="form-control select2Select" multiple="multiple">
+                            </select>
                         </div>
-                        <div class="form-row">
-                            <label class="col-12 col-md-12" for="allowTransportsText">AllowCredentials transports</label>
-                            <div class="form-group col-8 col-md-8">
-                                <input type="text" class="form-control" id="allowTransportsText" aria-describedby="allowTransportsHelp" placeholder="Enter transports values">
-                            </div>
-                            <div class="form-group col-auto col-md-auto">
-                                <button id="allowTransportsAddBtn" type="button" class="btn btn-info"><i class="material-icons align-middle ">arrow_back_ios</i></button>
-                            </div>
-                            <div class="form-group col col-md">
-                                <select id="allowTransportsSelect" class="form-control">
-                                    <option value="usb">usb</option>
-                                    <option value="nfc">nfc</option>
-                                    <option value="ble">ble</option>
-                                    <option value="internal">internal</option>
-                                </select>
-                            </div>
-                            <small class="col-12 col-md-12 form-text text-muted">Multi values must be separated by space.</small>
+                        <div class="form-group">
+                            <a href="#" class="clearSelectLink material-icons float-right text-danger" data-targetselect="allowTransportsSelect">clear</a>
+                            <label for="allowTransportsSelect">AllowCredentials transports</label>
+                            <select id="allowTransportsSelect" class="form-control select2Select" multiple="multiple">
+                                <option value="usb">usb</option>
+                                <option value="nfc">nfc</option>
+                                <option value="ble">ble</option>
+                                <option value="internal">internal</option>
+                            </select>
                         </div>
                         <div class="form-group">
                             <label for="assertionExtensionsTextArea">Option Parameters on Assertion</label>
@@ -385,6 +355,7 @@
     <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.1.2/js/bootstrap.min.js" integrity="sha384-o+RDsa0aLu++PJvFqy8fFScvbHFLtbvScb8AjopnFD+iEQ7wo/CG0xlczd+2O/em" crossorigin="anonymous"></script>
 	<script src="https://cdn.jsdelivr.net/npm/js-cookie@2/src/js.cookie.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/gasparesganga-jquery-loading-overlay@2.1.5/dist/loadingoverlay.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.6-rc.0/js/select2.min.js"></script>
     <script src="{{ url_for('static', filename='js/lib/base64.js') }}"></script>
     <script async defer src="https://buttons.github.io/buttons.js"></script>
     <script type="text/javascript">
@@ -577,6 +548,14 @@
         // Loading-Anim Default Settings
         $.LoadingOverlaySetup({
             imageColor: "#ffcc00"
+        });
+
+        $('.select2Select').select2({
+            width: '100%',
+            placeholder: "Dropdown to select",
+            templateSelection: function(data) {
+                return data.text.split(' - ')[0].trim();
+            }
         });
 
         $("#infoalert-close").click(function(e) {
@@ -1104,73 +1083,79 @@
                 if(data.fail) {
                     $('#errmsg').text(data.fail);
                     $('#erralert').removeClass('d-none');
+
+                    $.LoadingOverlay("hide", true);
                 } else {
                     $("#allowUsersSelect").children().remove();
                     $("#excludeUsersSelect").children().remove();
-                    $("#acceptableUsersSelect").children().remove();
+                    $("#testSelect").children().remove();
                     for(let u of data.users) {
                         $("#allowUsersSelect").append($('<option>').val(u.id).text(u.username + '(' + u.id + ')' + ' - ' + u.display_name));
                         $("#excludeUsersSelect").append($('<option>').val(u.id).text(u.username + '(' + u.id + ')' + ' - ' + u.display_name));
-                        $("#acceptableUsersSelect").append($('<option>').val(u.id).text(u.username + '(' + u.id + ')' + ' - ' + u.display_name));
+                        $("#testSelect").append($('<option>').val(u.id).text(u.username + '(' + u.id + ')' + ' - ' + u.display_name));
                     }
+
+                    $.ajax({
+                        method: "GET",
+                        url: "/options",
+                        dataType: "json"
+                    }).done(function( data, textStatus, jqXHR ) {
+                        $('#attestationTypeSelect').val(data.attestation.conveyancePreference);
+                        $('#userVerificationSelect').val(data.attestation.authenticatorSelection.userVerification);
+                        $('#requireResidentKeySelect').val(data.attestation.authenticatorSelection.requireResidentKey.toString());
+                        $('#authenticatorAttachmentSelect').val(data.attestation.authenticatorSelection.authenticatorAttachment);
+                        if(data.attestation.excludeCredentials.enabled == 'true') {
+                            $('#enableAttestationExcludeCredentialsCheck').prop('checked', true);
+                        } else {
+                            $('#enableAttestationExcludeCredentialsCheck').prop('checked', false);
+                        }
+                        $('#excludeUsersSelect').val(data.attestation.excludeCredentials.id);
+                        $('#excludeUsersSelect').trigger('change');
+                        $('#excludeTransportsSelect').val(data.attestation.excludeCredentials.transports);
+                        $('#excludeTransportsSelect').trigger('change');
+                        if(Object.keys(data.attestation.extensions).length > 0) {
+                            var tmparr = new Array();
+                            for(var k in data.attestation.extensions) {
+                                tmparr.push(k + '=' + data.attestation.extensions[k]);
+                            }
+                            $('#attestationExtensionsTextArea').val(tmparr.join('\n'));
+                        } else {
+                            $('#attestationExtensionsTextArea').val('');
+                        }
+                        if(data.assertion.allowCredentials.enabled == 'true') {
+                            $('#enableAssertionAllowCredentialsCheck').prop('checked', true);
+                        } else {
+                            $('#enableAssertionAllowCredentialsCheck').prop('checked', false);
+                        }
+                        $('#allowUsersSelect').val(data.assertion.allowCredentials.id);
+                        $('#allowUsersSelect').trigger('change');
+                        $('#allowTransportsSelect').val(data.assertion.allowCredentials.transports);
+                        $('#allowTransportsSelect').trigger('change');
+                        if(Object.keys(data.assertion.extensions).length > 0) {
+                            var tmparr = new Array();
+                            for(var k in data.assertion.extensions) {
+                                tmparr.push(k + '=' + data.assertion.extensions[k]);
+                            }
+                            $('#assertionExtensionsTextArea').val(tmparr.join('\n'));
+                        } else {
+                            $('#assertionExtensionsTextArea').val('');
+                        }
+                        
+                    }).fail(function( jqXHR, textStatus, errorThrown ) {
+                        console.log("Error getting User.");
+                        console.log(e);
+                        $('#errmsg').text(jqXHR.status + ' ' + jqXHR.statusText);
+                        $('#erralert').removeClass('d-none');
+                    }).always(function( ) {
+                        $.LoadingOverlay("hide", true);
+                    });
                 }
             }).fail(function( jqXHR, textStatus, errorThrown ) {
                 console.log("Error getting Users.");
                 console.log(e);
                 $('#errmsg').text(jqXHR.status + ' ' + jqXHR.statusText);
                 $('#erralert').removeClass('d-none');
-            }).always(function( ) {
-                $.LoadingOverlay("hide", true);
-            });
 
-            $.ajax({
-                method: "GET",
-                url: "/options",
-                dataType: "json"
-            }).done(function( data, textStatus, jqXHR ) {
-                $('#attestationTypeSelect').val(data.attestation.conveyancePreference);
-                $('#userVerificationSelect').val(data.attestation.authenticatorSelection.userVerification);
-                $('#requireResidentKeySelect').val(data.attestation.authenticatorSelection.requireResidentKey.toString());
-                $('#authenticatorAttachmentSelect').val(data.attestation.authenticatorSelection.authenticatorAttachment);
-                if(data.attestation.excludeCredentials.enabled == 'true') {
-                    $('#enableAttestationExcludeCredentialsCheck').prop('checked', true);
-                } else {
-                    $('#enableAttestationExcludeCredentialsCheck').prop('checked', false);
-                }
-                $('#excludeUsersText').val(data.attestation.excludeCredentials.id.join(' '));
-                $('#excludeTransportsText').val(data.attestation.excludeCredentials.transports.join(' '));
-                if(Object.keys(data.attestation.extensions).length > 0) {
-                    var tmparr = new Array();
-                    for(var k in data.attestation.extensions) {
-                        tmparr.push(k + '=' + data.attestation.extensions[k]);
-                    }
-                    $('#attestationExtensionsTextArea').val(tmparr.join('\n'));
-                } else {
-                    $('#attestationExtensionsTextArea').val('');
-                }
-                if(data.assertion.allowCredentials.enabled == 'true') {
-                    $('#enableAssertionAllowCredentialsCheck').prop('checked', true);
-                } else {
-                    $('#enableAssertionAllowCredentialsCheck').prop('checked', false);
-                }
-                $('#allowUsersText').val(data.assertion.allowCredentials.id.join(' '));
-                $('#allowTransportsText').val(data.assertion.allowCredentials.transports.join(' '));
-                if(Object.keys(data.assertion.extensions).length > 0) {
-                    var tmparr = new Array();
-                    for(var k in data.assertion.extensions) {
-                        tmparr.push(k + '=' + data.assertion.extensions[k]);
-                    }
-                    $('#assertionExtensionsTextArea').val(tmparr.join('\n'));
-                } else {
-                    $('#assertionExtensionsTextArea').val('');
-                }
-                
-            }).fail(function( jqXHR, textStatus, errorThrown ) {
-                console.log("Error getting User.");
-                console.log(e);
-                $('#errmsg').text(jqXHR.status + ' ' + jqXHR.statusText);
-                $('#erralert').removeClass('d-none');
-            }).always(function( ) {
                 $.LoadingOverlay("hide", true);
             });
         });
@@ -1185,12 +1170,12 @@
             var requireResidentKey = $('#requireResidentKeySelect').val();
             var authenticatorAttachment = $('#authenticatorAttachmentSelect').val();
             var enableAttestationExcludeCredentials = ($('#enableAttestationExcludeCredentialsCheck').prop('checked')) ? 'true' : 'false';
-            var attestationExcludeCredentialsUsers = $('#excludeUsersText').val();
-            var attestationExcludeCredentialsTransports = $('#excludeTransportsText').val();
+            var attestationExcludeCredentialsUsers = $('#excludeUsersSelect').select2('data').map((elm) => elm.id).join(' ');
+            var attestationExcludeCredentialsTransports = $('#excludeTransportsSelect').select2('data').map((elm) => elm.id).join(' ');
             var attestationExtensions = $('#attestationExtensionsTextArea').val();
             var enableAssertionAllowCredentials = ($('#enableAssertionAllowCredentialsCheck').prop('checked')) ? 'true' : 'false';
-            var assertionAllowCredentialsUsers = $('#allowUsersText').val();
-            var assertionAllowCredentialsTransports = $('#allowTransportsText').val();
+            var assertionAllowCredentialsUsers = $('#allowUsersSelect').select2('data').map((elm) => elm.id).join(' ');
+            var assertionAllowCredentialsTransports = $('#allowTransportsSelect').select2('data').map((elm) => elm.id).join(' ');
             var assertionExtensions = $('#assertionExtensionsTextArea').val();
 
             $.post("/options", {
@@ -1225,54 +1210,8 @@
             });
         });
 
-        $("#excludeUsersAddBtn").on('click', function (e) {
-            if($("#excludeUsersText").val() == "") {
-                $("#excludeUsersText").val($("#excludeUsersSelect option:selected").val());
-            } else {
-                var sc = $("#excludeUsersText").val().split(' ');
-                if($.inArray($("#excludeUsersSelect option:selected").val(), sc) == -1) {
-                    sc.push($("#excludeUsersSelect option:selected").val());
-                    sc.sort(function(m,n){return m - n;});
-                    $("#excludeUsersText").val(sc.join(' '));
-                }
-            }
-        });
-
-        $("#excludeTransportsAddBtn").on('click', function (e) {
-            if($("#excludeTransportsText").val() == "") {
-                $("#excludeTransportsText").val($("#excludeTransportsSelect option:selected").val());
-            } else {
-                var sc = $("#excludeTransportsText").val().split(' ');
-                if($.inArray($("#excludeTransportsSelect option:selected").val(), sc) == -1) {
-                    sc.push($("#excludeTransportsSelect option:selected").val());
-                    $("#excludeTransportsText").val(sc.join(' '));
-                }
-            }
-        });
-
-        $("#allowUsersAddBtn").on('click', function (e) {
-            if($("#allowUsersText").val() == "") {
-                $("#allowUsersText").val($("#allowUsersSelect option:selected").val());
-            } else {
-                var sc = $("#allowUsersText").val().split(' ');
-                if($.inArray($("#allowUsersSelect option:selected").val(), sc) == -1) {
-                    sc.push($("#allowUsersSelect option:selected").val());
-                    sc.sort(function(m,n){return m - n;});
-                    $("#allowUsersText").val(sc.join(' '));
-                }
-            }
-        });
-
-        $("#allowTransportsAddBtn").on('click', function (e) {
-            if($("#allowTransportsText").val() == "") {
-                $("#allowTransportsText").val($("#allowTransportsSelect option:selected").val());
-            } else {
-                var sc = $("#allowTransportsText").val().split(' ');
-                if($.inArray($("#allowTransportsSelect option:selected").val(), sc) == -1) {
-                    sc.push($("#allowTransportsSelect option:selected").val());
-                    $("#allowTransportsText").val(sc.join(' '));
-                }
-            }
+        $(".clearSelectLink").on('click', function (e) {
+            $('#' + e.currentTarget.dataset.targetselect).val(null).trigger('change');
         });
     });
 
