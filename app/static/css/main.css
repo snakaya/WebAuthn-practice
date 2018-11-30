@@ -32,3 +32,10 @@ td {
 .checkIcon:hover {
     cursor: pointer;
 }
+
+.clearSelectLink {
+    font-size: 36px;
+}
+.clearSelectLink:hover {
+    text-decoration-line: none;
+}

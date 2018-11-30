@@ -127,9 +127,9 @@ Please refer sample/uwsgi.ini.sample. Edit it and copy to your app directory.
 
 ## TODO
 
-[ ] Support Python3
+-[ ] Support Python3
 
-[ ] make docker-compose
+-[ ] make docker-compose
 
 ## License
 
