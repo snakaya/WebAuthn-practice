@@ -876,10 +876,8 @@ class WebAuthnRegistrationResponse(object):
                 aaguid = attestation_data[:16]
 
                 try:
-                    # TODO:
-                    # [Hacked] Why certificate attribute's length is 18 (aaguid should be 16byte) and has '\x04\x10' into begging part? What's mean??
                     cert_attrib_value = x509_att_cert.extensions.get_extension_for_oid(ObjectIdentifier(OID_AAGUID)).value.value
-                    if len(cert_attrib_value) == 18:
+                    if len(cert_attrib_value) == 18:  # Wrapped strings is added in first block('\x04\x10'). Refer at 8.2.1
                         cert_attrib_value = cert_attrib_value[2:]
                     elif len(cert_attrib_value) != 16:
                         self.logger.add('Certificate attribute value length is not 16bytes.')
