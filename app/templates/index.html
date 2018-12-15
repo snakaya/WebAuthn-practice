@@ -24,16 +24,23 @@
                     <a class="nav-link active" href="#" id="rlLink">Register&amp;Authn</a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link" href="#" id="usersLink">Users</a>
+                    <a class="nav-link" href="#" id="usersLink">Credentials</a>
                 </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="#" id="viewLink">Fast View</a>
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" id="toolsDropdown" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                      Tools
+                    </a>
+                    <div class="dropdown-menu" aria-labelledby="navbarDropdown">
+                        <a class="dropdown-item" href="#" id="decoderLink">Response Decoder</a>
+                    </div>
                 </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="#" id="decoderLink">Decoder</a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="#" id="osLink">Option Setting</a>
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" id="settingsDropdown" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                      Settings
+                    </a>
+                    <div class="dropdown-menu" aria-labelledby="navbarDropdown">
+                        <a class="dropdown-item" href="#" id="osLink">Option Setting</a>
+                    </div>
                 </li>
             </ul>
             <span class="navbar-text">v{{ app_version }}</span>
@@ -216,30 +223,11 @@
             </div>
         </div>
 
-        <div class="container viewPanel" id="viewModal" style="display: none;">
-            <h2 class="text-center">Fast View</h2>
-            <form name="fastview">
-                <div class="form-group">
-                    <label for="view_username">Username</label>
-                    <input type="text" class="form-control" id="view_username" name="view_username" placeholder="(Required When Authentication) Enter UserName">
-                </div>
-                <div class="mx-auto d-inline" role="group" aria-label="view buttons">
-                    <button id="view_attestaion" type="button" class="btn btn-primary btn-lg btn-inline">Registration</button>
-                    <button id="view_assertion" type="button" class="btn btn-primary btn-lg btn-inline">Authentication</button>
-                </div>
-                <div class="form-group mt-2">
-                        <a href="#" id="clearViewlogLink"><svg id="clearViewlogIcon" class="clearIcon float-right" xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24"><path fill="none" d="M0 0h24v24H0V0z"/><path d="M16 9v10H8V9h8m-1.5-6h-5l-1 1H5v2h14V4h-3.5l-1-1zM18 7H6v12c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7z"/></svg></a>
-                    <h2 class="text-center">Result</h2>
-                    <textarea class="form-control bg-white" id="view_output" rows="20" readonly="true"></textarea>
-                </div>
-            </form>
-        </div>
-
         <div class="container decoderPanel" id="decoderModal" style="display: none;">
-            <h2 class="text-center">Decoder</h2>
+            <h2 class="text-center">Response Decoder</h2>
             <form name="fastview">
                 <div class="form-group mt-2">
-                    <h2 class="text-center">Encoded Response</h2>
+                    <h2 class="text-center">Authenticator Response</h2>
                     <textarea class="form-control bg-white" id="decoder_input" rows="12"></textarea>
                 </div>
                 <button id="decodeAttestationBtn" type="button" class="btn btn-primary btn-lg btn-block">Decode as Attestation Response</button>
@@ -790,220 +778,6 @@
             });
         });
 
-        $("#view_attestaion").click(function(e) {
-            e.preventDefault();
-            var username = $('input[name="view_username"]').val();
-
-            $.LoadingOverlay("show", true);
-            $.post("/attestation/request", {
-                username: username
-            }).done(function(makeCredentialOptions) {
-                console.log(makeCredentialOptions);
-                addViewLog('----- MakeCredentialOptions -----');
-                addViewLog(JSON.stringify(makeCredentialOptions, undefined, 4));
-                addViewLog('----------');
-                if(makeCredentialOptions.responseJSON) {
-                    if(makeCredentialOptions.responseJSON.fail) {
-                        $('#errmsg').text(makeCredentialOptions.responseJSON.fail);
-                        $('#erralert').removeClass('d-none');
-                        return false;
-                    }
-                }
-                // Turn the challenge back into the accepted format
-                makeCredentialOptions.challenge = Uint8Array.from(atob(makeCredentialOptions.challenge), c => c.charCodeAt(0));
-                // Turn the user ID back into the accepted format
-                makeCredentialOptions.user.id = Uint8Array.from(atob(makeCredentialOptions.user.id), c => c.charCodeAt(0));
-                // Turn the allowCredential.id back into the accepted format
-                if(makeCredentialOptions.allowCredentials) {
-                    makeCredentialOptions.allowCredentials.forEach(function(listItem) {
-                        var fixedId = listItem.id.replace(/\_/g, "/").replace(/\-/g, "+");
-                        listItem.id = Uint8Array.from(atob(fixedId), c => c.charCodeAt(0));
-                    });
-                }
-                // Turn the excludeCredentials.id back into the accepted format
-                if(makeCredentialOptions.excludeCredentials) {
-                    makeCredentialOptions.excludeCredentials.forEach(function(listItem) {
-                        var fixedId = listItem.id.replace(/\_/g, "/").replace(/\-/g, "+");
-                        listItem.id = Uint8Array.from(atob(fixedId), c => c.charCodeAt(0));
-                    });
-                }
-                try{
-                    navigator.credentials.create({ publicKey: makeCredentialOptions })
-                        .then(function(publicKeyCredential) {
-                            console.log(publicKeyCredential);
-
-                            let attObj = new Uint8Array(publicKeyCredential.response.attestationObject);
-                            let clientDataJSON = new Uint8Array(publicKeyCredential.response.clientDataJSON);
-                            let rawId = new Uint8Array(publicKeyCredential.rawId);
-                            let registrationClientExtensions = publicKeyCredential.getClientExtensionResults();
-                            $.post('/attestation/view', {
-                                id: publicKeyCredential.id,
-                                rawId: b64enc(rawId),
-                                type: publicKeyCredential.type,
-                                attObj: b64enc(attObj),
-                                clientData: b64enc(clientDataJSON),
-                                registrationClientExtensions: JSON.stringify(registrationClientExtensions)
-                            }).done(function(response){
-                                console.log(response);
-                                if(response.success) {
-                                    $('#infomsg').text(response.success);
-                                    $('#infoalert').removeClass('d-none');
-                                } else if(response.fail) {
-                                    $('#errmsg').text(response.fail);
-                                    $('#erralert').removeClass('d-none');
-                                }
-                                addViewLog('===== Authenticator Attestation Response (Decoded) =====');
-                                addViewLog(JSON.stringify(response, undefined, 4));
-                                addViewLog('=====  =====');
-                            }).catch(function(e) {
-                                console.log("Error viewing credential.");
-                                console.log(e);
-                                if(e.responseJSON.fail) {
-                                    $('#errmsg').text(e.responseJSON.fail);
-                                    $('#erralert').removeClass('d-none');
-                                }
-                            }).always(function( ) {
-                                $.LoadingOverlay("hide", true);
-                            });
-                        }).catch(function(e) {
-                            // No acceptable authenticator or user refused
-                            // consent. Handle appropriately.
-                            console.log("Error creating credential.");
-                            console.log(e);
-                            if(e.message) {
-                                $('#errmsg').text(e.message);
-                                $('#erralert').removeClass('d-none');
-                            } else if(e.responseJSON.fail) {
-                                $('#errmsg').text(e.responseJSON.fail);
-                                $('#erralert').removeClass('d-none');
-                            }
-
-                            $.LoadingOverlay("hide", true);
-                        });
-                } catch(e) {
-                    console.log("Error navigator.credentials.create.");
-                    console.log(e);
-                    if(e.message) {
-                        $('#errmsg').text(e.message);
-                        $('#erralert').removeClass('d-none');
-                    }
-
-                    $.LoadingOverlay("hide", true);
-                };
-            }).catch(function(e) {
-                console.log("Error Making credential oprions.");
-                console.log(e);
-                if(e.responseJSON.fail) {
-                    $('#errmsg').text(e.responseJSON.fail);
-                    $('#erralert').removeClass('d-none');
-                }
-            
-                $.LoadingOverlay("hide", true);
-            });
-        });
-        $("#view_assertion").click(function(e) {
-            e.preventDefault();
-            var username = $('input[name="view_username"]').val();
-
-            $.LoadingOverlay("show", true);
-            $.post("/assertion/request", {
-                username: username
-            }).done(function(assertionOptions) {
-                console.log(assertionOptions);
-                addViewLog('----- assertionOptions -----');
-                addViewLog(JSON.stringify(assertionOptions, undefined, 4));
-                addViewLog('----------');
-                if(assertionOptions.responseJSON) {
-                    if(assertionOptions.responseJSON.fail) {
-                        $('#errmsg').text(assertionOptions.responseJSON.fail);
-                        $('#erralert').removeClass('d-none');
-                        return false;
-                    }
-                }
-                // Turn the challenge back into the accepted format
-                assertionOptions.challenge = Uint8Array.from(atob(assertionOptions.challenge), c => c.charCodeAt(0));
-                // Turn the allowCredentials.id back into the accepted format
-                if(assertionOptions.allowCredentials) {
-                    assertionOptions.allowCredentials.forEach(function(listItem) {
-                        var fixedId = listItem.id.replace(/\_/g, "/").replace(/\-/g, "+");
-                        listItem.id = Uint8Array.from(atob(fixedId), c => c.charCodeAt(0));
-                    });
-                }
-                try{
-                    navigator.credentials.get({ publicKey: assertionOptions })
-                        .then(function(assertedCredential) {
-                            console.log(assertedCredential);
-
-                            let authData = new Uint8Array(assertedCredential.response.authenticatorData);
-                            let clientDataJSON = new Uint8Array(assertedCredential.response.clientDataJSON);
-                            let rawId = new Uint8Array(assertedCredential.rawId);
-                            let sig = new Uint8Array(assertedCredential.response.signature);
-                            let assertionClientExtensions = assertedCredential.getClientExtensionResults();
-                            $.post('/assertion/view', {
-                                id: assertedCredential.id,
-                                rawId: b64enc(rawId),
-                                type: assertedCredential.type,
-                                authData: b64RawEnc(authData),
-                                clientData: b64RawEnc(clientDataJSON),
-                                signature: hexEncode(sig),
-                                assertionClientExtensions: JSON.stringify(assertionClientExtensions)
-                            }).done(function(response){
-                                console.log(response);
-                                if(response.success) {
-                                    $('#infomsg').text(response.success);
-                                    $('#infoalert').removeClass('d-none');
-                                } else if(response.fail) {
-                                    $('#errmsg').text(response.fail);
-                                    $('#erralert').removeClass('d-none');
-                                }
-                                addViewLog('===== Authenticator Assersion Response (Decoded) =====');
-                                addViewLog(JSON.stringify(response, undefined, 4));
-                                addViewLog('=====  =====');
-                            }).catch(function(e) {
-                                if(e.responseJSON.fail) {
-                                    $('#errmsg').text(e.responseJSON.fail);
-                                    $('#erralert').removeClass('d-none');
-                                }
-                            }).always(function( ) {
-                                $.LoadingOverlay("hide", true);
-                            });
-                        }).catch(function(e) {
-                            // No acceptable authenticator or user refused
-                            // consent. Handle appropriately.
-                            console.log("Error during assertion.");
-                            console.log(e);
-                            if(e.message) {
-                                $('#errmsg').text(e.message);
-                                $('#erralert').removeClass('d-none');
-                            } else if(e.responseJSON.fail) {
-                                $('#errmsg').text(e.responseJSON.fail);
-                                $('#erralert').removeClass('d-none');
-                            }
-
-                            $.LoadingOverlay("hide", true);
-                        });
-                } catch(e) {
-                    console.log("Error navigator.credentials.get.");
-                    console.log(e);
-                    if(e.message) {
-                        $('#errmsg').text(e.message);
-                        $('#erralert').removeClass('d-none');
-                    }
-
-                    $.LoadingOverlay("hide", true);
-                };
-            }).catch(function(e) {
-                console.log("Error Making assertion oprions.");
-                console.log(e);
-                if(e.responseJSON.fail) {
-                    $('#errmsg').text(e.responseJSON.fail);
-                    $('#erralert').removeClass('d-none');
-                }
-
-                $.LoadingOverlay("hide", true);
-            });
-        });
-
         $("#decodeAttestationBtn").click(function(e) {
             e.preventDefault();
             var decoder_input = $('#decoder_input').val();
@@ -1028,7 +802,7 @@
                 rawId = decoder_response.rawId;
                 type =  decoder_response.type;
                 attObj = decoder_response.response.attestationObject;
-                clientData = decoder_response.response.clientDataJSON;
+                clientData = decoder_response.response.clientDataJSON ? decoder_response.response.clientDataJSON : decoder_response.response.clientDataJson;
                 //registrationClientExtensions = JSON.stringify(decoder_response.getClientExtensionResults());
             } catch(e) {
                 console.log(e);
