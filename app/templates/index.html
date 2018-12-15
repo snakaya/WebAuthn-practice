@@ -27,8 +27,11 @@
                     <a class="nav-link" href="#" id="usersLink">Users</a>
                 </li>
                 <li class="nav-item">
-                        <a class="nav-link" href="#" id="viewLink">Fast View</a>
-                    </li>
+                    <a class="nav-link" href="#" id="viewLink">Fast View</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#" id="decoderLink">Decoder</a>
+                </li>
                 <li class="nav-item">
                     <a class="nav-link" href="#" id="osLink">Option Setting</a>
                 </li>
@@ -232,6 +235,23 @@
             </form>
         </div>
 
+        <div class="container decoderPanel" id="decoderModal" style="display: none;">
+            <h2 class="text-center">Decoder</h2>
+            <form name="fastview">
+                <div class="form-group mt-2">
+                    <h2 class="text-center">Encoded Response</h2>
+                    <textarea class="form-control bg-white" id="decoder_input" rows="12"></textarea>
+                </div>
+                <button id="decodeAttestationBtn" type="button" class="btn btn-primary btn-lg btn-block">Decode as Attestation Response</button>
+                <button id="decodeAssertionBtn" type="button" class="btn btn-primary btn-lg btn-block">Decode as Assertion Response</button>
+                <div class="form-group mt-2">
+                    <a href="#" id="clearDecoderlogLink"><svg id="clearDecoderlogIcon" class="clearIcon float-right" xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24"><path fill="none" d="M0 0h24v24H0V0z"/><path d="M16 9v10H8V9h8m-1.5-6h-5l-1 1H5v2h14V4h-3.5l-1-1zM18 7H6v12c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7z"/></svg></a>
+                    <h2 class="text-center">Result</h2>
+                    <textarea class="form-control bg-white" id="decoder_output" rows="15" readonly="true"></textarea>
+                </div>
+            </form>
+        </div>
+
         <div class="container optionsPanel" id="optionsModal" style="display: none;">
             <div class="float-right">
                 <button type="button" class="btn btn-primary opSettingsModalSaveBtn">Save changes</button>
@@ -416,6 +436,8 @@
             if(e.debug_log) {
                 addLog(response.debug_log);
             }
+        }).always(function( ) {
+            $.LoadingOverlay("hide", true);
         });
     }
 
@@ -453,6 +475,8 @@
             if(e.debug_log) {
                 addLog(response.debug_log);
             }
+        }).always(function( ) {
+            $.LoadingOverlay("hide", true);
         });
     }
 
@@ -543,6 +567,10 @@
         $('#view_output').val('');
     }
 
+    function clearDecoderLog() {
+        $('#decoder_output').val('');
+    }
+
 
     $(document).ready(function() {
         // Loading-Anim Default Settings
@@ -573,6 +601,8 @@
             var displayName = $('input[name="register_display_name"]').val();
 
             addLog('\n===== Registration Start =====');
+
+            $.LoadingOverlay("show", true);
             $.post("/attestation/request", {
                 username: username,
                 displayName: displayName,
@@ -636,6 +666,8 @@
                                 $('#erralert').removeClass('d-none');
                             }
                             addLog('===== Registration End =====');
+
+                            $.LoadingOverlay("hide", true);
                         });
                 } catch(e) {
                     console.log("Error navigator.credentials.create.");
@@ -648,6 +680,8 @@
                         $('#erralert').removeClass('d-none');
                     }
                     addLog('===== Registration End =====');
+
+                    $.LoadingOverlay("hide", true);
                 };
             }).catch(function(e) {
                 console.log("Error Making credential oprions.");
@@ -660,6 +694,8 @@
                     $('#erralert').removeClass('d-none');
                 }
                 addLog('===== Registration End =====');
+
+                $.LoadingOverlay("hide", true);
             });
         });
 
@@ -668,6 +704,8 @@
             var username = $('input[name="authn_username"]').val();
 
             addLog('\n===== Authentication Start =====');
+
+            $.LoadingOverlay("show", true);
             $.post("/assertion/request", {
                 username: username
             }).done(function(assertionOptions) {
@@ -717,6 +755,8 @@
                                 $('#erralert').removeClass('d-none');
                             }
                             addLog('===== Authentication End =====');
+                        
+                            $.LoadingOverlay("hide", true);
                         });
                 } catch(e) {
                     console.log("Error navigator.credentials.get.");
@@ -729,6 +769,8 @@
                         $('#erralert').removeClass('d-none');
                     }
                     addLog('===== Authentication End =====');
+
+                    $.LoadingOverlay("hide", true);
                 };
             }).catch(function(e) {
                 console.log("Error Making assertion oprions.");
@@ -736,11 +778,15 @@
                 addLog('>>>>> Error Making assertion oprions. <<<<<');
                 addErrToLog(e);
                 addLog('>>>>> <<<<<');
-                if(e.responseJSON.fail) {
-                    $('#errmsg').text(e.responseJSON.fail);
-                    $('#erralert').removeClass('d-none');
+                if(e.responseJSON) {
+                    if(e.responseJSON.fail) {
+                        $('#errmsg').text(e.responseJSON.fail);
+                        $('#erralert').removeClass('d-none');
+                    }
                 }
                 addLog('===== Authentication End1 =====');
+
+                $.LoadingOverlay("hide", true);
             });
         });
 
@@ -748,6 +794,7 @@
             e.preventDefault();
             var username = $('input[name="view_username"]').val();
 
+            $.LoadingOverlay("show", true);
             $.post("/attestation/request", {
                 username: username
             }).done(function(makeCredentialOptions) {
@@ -815,6 +862,8 @@
                                     $('#errmsg').text(e.responseJSON.fail);
                                     $('#erralert').removeClass('d-none');
                                 }
+                            }).always(function( ) {
+                                $.LoadingOverlay("hide", true);
                             });
                         }).catch(function(e) {
                             // No acceptable authenticator or user refused
@@ -828,6 +877,8 @@
                                 $('#errmsg').text(e.responseJSON.fail);
                                 $('#erralert').removeClass('d-none');
                             }
+
+                            $.LoadingOverlay("hide", true);
                         });
                 } catch(e) {
                     console.log("Error navigator.credentials.create.");
@@ -836,6 +887,8 @@
                         $('#errmsg').text(e.message);
                         $('#erralert').removeClass('d-none');
                     }
+
+                    $.LoadingOverlay("hide", true);
                 };
             }).catch(function(e) {
                 console.log("Error Making credential oprions.");
@@ -844,12 +897,15 @@
                     $('#errmsg').text(e.responseJSON.fail);
                     $('#erralert').removeClass('d-none');
                 }
+            
+                $.LoadingOverlay("hide", true);
             });
         });
         $("#view_assertion").click(function(e) {
             e.preventDefault();
             var username = $('input[name="view_username"]').val();
 
+            $.LoadingOverlay("show", true);
             $.post("/assertion/request", {
                 username: username
             }).done(function(assertionOptions) {
@@ -877,7 +933,6 @@
                     navigator.credentials.get({ publicKey: assertionOptions })
                         .then(function(assertedCredential) {
                             console.log(assertedCredential);
-                            //verifyAssertion(assertedCredential);
 
                             let authData = new Uint8Array(assertedCredential.response.authenticatorData);
                             let clientDataJSON = new Uint8Array(assertedCredential.response.clientDataJSON);
@@ -909,6 +964,8 @@
                                     $('#errmsg').text(e.responseJSON.fail);
                                     $('#erralert').removeClass('d-none');
                                 }
+                            }).always(function( ) {
+                                $.LoadingOverlay("hide", true);
                             });
                         }).catch(function(e) {
                             // No acceptable authenticator or user refused
@@ -922,6 +979,8 @@
                                 $('#errmsg').text(e.responseJSON.fail);
                                 $('#erralert').removeClass('d-none');
                             }
+
+                            $.LoadingOverlay("hide", true);
                         });
                 } catch(e) {
                     console.log("Error navigator.credentials.get.");
@@ -930,6 +989,8 @@
                         $('#errmsg').text(e.message);
                         $('#erralert').removeClass('d-none');
                     }
+
+                    $.LoadingOverlay("hide", true);
                 };
             }).catch(function(e) {
                 console.log("Error Making assertion oprions.");
@@ -938,6 +999,139 @@
                     $('#errmsg').text(e.responseJSON.fail);
                     $('#erralert').removeClass('d-none');
                 }
+
+                $.LoadingOverlay("hide", true);
+            });
+        });
+
+        $("#decodeAttestationBtn").click(function(e) {
+            e.preventDefault();
+            var decoder_input = $('#decoder_input').val();
+
+            var decoder_response = "";
+            var id = "";
+            var rowId = "";
+            var type = "";
+            var attObj = "";
+            var clientData = "";
+            var registrationClientExtensions = "{}";
+
+            try {
+                decoder_response = JSON.parse(decoder_input);
+                if(decoder_response.response.signature) {
+                    $('#errmsg').text('This Response seems not Attestation.');
+                    $('#erralert').removeClass('d-none');
+                    return;
+                }
+
+                id = decoder_response.id;
+                rawId = decoder_response.rawId;
+                type =  decoder_response.type;
+                attObj = decoder_response.response.attestationObject;
+                clientData = decoder_response.response.clientDataJSON;
+                //registrationClientExtensions = JSON.stringify(decoder_response.getClientExtensionResults());
+            } catch(e) {
+                console.log(e);
+                $('#errmsg').text('Decode Response is invalid.');
+                $('#erralert').removeClass('d-none');
+                return;
+            }
+
+            $.LoadingOverlay("show", true);
+            $.post('/attestation/view', {
+                id: id,
+                rawId: rawId,
+                type: type,
+                attObj: attObj,
+                clientData: clientData,
+                registrationClientExtensions: registrationClientExtensions
+            }).done(function(response){
+                console.log(response);
+                if(response.success) {
+                    $('#infomsg').text(response.success);
+                    $('#infoalert').removeClass('d-none');
+                } else if(response.fail) {
+                    $('#errmsg').text(response.fail);
+                    $('#erralert').removeClass('d-none');
+                }
+                $('#decoder_output').val(JSON.stringify(response, undefined, 4));
+            }).catch(function(e) {
+                console.log("Error viewing credential.");
+                console.log(e);
+                if(e.responseJSON.fail) {
+                    $('#errmsg').text(e.responseJSON.fail);
+                    $('#erralert').removeClass('d-none');
+                }
+            }).always(function( ) {
+                $.LoadingOverlay("hide", true);
+            });
+        });
+        $("#decodeAssertionBtn").click(function(e) {
+            e.preventDefault();
+            var decoder_input = $('#decoder_input').val();
+
+            var decoder_response = "";
+            var id = "";
+            var rowId = "";
+            var type = "";
+            var attObj = "";
+            var clientData = "";
+            var signature = "";
+            var userHandle = "";
+            var assertionClientExtensions = "{}";
+
+            try {
+                decoder_response = JSON.parse(decoder_input);
+                if(!decoder_response.response.signature) {
+                    $('#errmsg').text('This Response seems not Assertion.');
+                    $('#erralert').removeClass('d-none');
+                    return;
+                }
+
+                id = decoder_response.id;
+                rawId = decoder_response.rawId;
+                type =  decoder_response.type;
+                authData = decoder_response.response.authenticatorData;
+                clientData = decoder_response.response.clientDataJSON;
+                signature = decoder_response.response.signature;
+                //userHandle = decoder_response.response.userHandle;
+                //assertionClientExtensions = JSON.stringify(decoder_response.assertionClientExtensions());
+            } catch(e) {
+                console.log(e);
+                $('#errmsg').text('Decode Response is invalid.');
+                $('#erralert').removeClass('d-none');
+                return;
+            }
+
+            $.LoadingOverlay("show", true);
+            $.post('/assertion/view', {
+                id: id,
+                rawId: rawId,
+                type: type,
+                authData: authData,
+                clientData: clientData,
+                signature: signature,
+                userHandle: userHandle,
+                assertionClientExtensions: assertionClientExtensions
+            }).done(function(response){
+                console.log(response);
+                if(response.success) {
+                    $('#infomsg').text(response.success);
+                    $('#infoalert').removeClass('d-none');
+                } else if(response.fail) {
+                    $('#errmsg').text(response.fail);
+                    $('#erralert').removeClass('d-none');
+                }
+                $('#decoder_output').val(JSON.stringify(response, undefined, 4));
+            }).catch(function(e) {
+                console.log("Error viewing credential.");
+                console.log(e);
+                if(e.responseJSON.fail) {
+                    $('#errmsg').text(e.responseJSON.fail);
+                    $('#erralert').removeClass('d-none');
+                }
+            }).always(function( ) {
+                $.LoadingOverlay("hide", true);
             });
         });
 
@@ -946,10 +1140,12 @@
             $('#usersModal').hide(300);
             $('#userDetailModal').hide(300);
             $('#viewModal').hide(300);
+            $('#decoderModal').hide(300);
             $('#optionsModal').hide(300);
             $('#rlLink').addClass('active');
             $('#usersLink').removeClass('active');
             $('#viewLink').removeClass('active');
+            $('#decoderLink').removeClass('active');
             $('#osLink').removeClass('active');
 
             $('#infomsg').text('');
@@ -962,10 +1158,12 @@
             $('#userDetailModal').hide(300);
             $('#rlModal').hide(300);
             $('#viewModal').hide(300);
+            $('#decoderModal').hide(300);
             $('#optionsModal').hide(300);
             $('#usersLink').addClass('active');
             $('#rlLink').removeClass('active');
             $('#viewLink').removeClass('active');
+            $('#decoderLink').removeClass('active');
             $('#osLink').removeClass('active');
 
             $('#infomsg').text('');
@@ -1003,11 +1201,13 @@
             $('#userDetailModal').show(300);
             $('#rlModal').hide(300);
             $('#viewModal').hide(300);
+            $('#decoderModal').hide(300);
             $('#optionsModal').hide(300);
             $('#usersModal').hide(300);
             $('#usersLink').addClass('active');
             $('#rlLink').removeClass('active');
             $('#viewLink').removeClass('active');
+            $('#decoderLink').removeClass('active');
             $('#osLink').removeClass('active');
 
             $('#infomsg').text('');
@@ -1043,11 +1243,31 @@
         });
         $("#viewLink").click(function(e) {
             $('#viewModal').show(300);
+            $('#decoderModal').hide(300);
             $('#optionsModal').hide(300);
             $('#usersModal').hide(300);
             $('#userDetailModal').hide(300);
             $('#rlModal').hide(300);
             $('#viewLink').addClass('active');
+            $('#decoderLink').removeClass('active');
+            $('#osLink').removeClass('active');
+            $('#usersLink').removeClass('active');
+            $('#rlLink').removeClass('active');
+
+            $('#infomsg').text('');
+            $('#infoalert').addClass('d-none');
+            $('#errmsg').text('');
+            $('#erralert').addClass('d-none');
+        });
+        $("#decoderLink").click(function(e) {
+            $('#decoderModal').show(300);
+            $('#viewModal').hide(300);
+            $('#optionsModal').hide(300);
+            $('#usersModal').hide(300);
+            $('#userDetailModal').hide(300);
+            $('#rlModal').hide(300);
+            $('#decoderLink').addClass('active');
+            $('#viewLink').removeClass('active');
             $('#osLink').removeClass('active');
             $('#usersLink').removeClass('active');
             $('#rlLink').removeClass('active');
@@ -1060,11 +1280,13 @@
         $("#osLink").click(function(e) {
             $('#optionsModal').show(300);
             $('#viewModal').hide(300);
+            $('#decoderModal').hide(300);
             $('#usersModal').hide(300);
             $('#userDetailModal').hide(300);
             $('#rlModal').hide(300);
             $('#osLink').addClass('active');
             $('#viewLink').removeClass('active');
+            $('#decoderLink').removeClass('active');
             $('#usersLink').removeClass('active');
             $('#rlLink').removeClass('active');
 
@@ -1162,6 +1384,7 @@
 
         $("#clearlogIcon").click(function(e) { clearLog(); });
         $("#clearViewlogIcon").click(function(e) { clearViewLog(); });
+        $("#clearDecoderlogIcon").click(function(e) { clearDecoderLog(); });
 
         $(".opSettingsModalSaveBtn").click(function(e) {
             e.preventDefault();
@@ -1178,6 +1401,7 @@
             var assertionAllowCredentialsTransports = $('#allowTransportsSelect').select2('data').map((elm) => elm.id).join(' ');
             var assertionExtensions = $('#assertionExtensionsTextArea').val();
 
+            $.LoadingOverlay("show", true);
             $.post("/options", {
                 conveyancePreference: conveyancePreference,
                 userVerification: userVerification,
@@ -1207,6 +1431,8 @@
                     $('#errmsg').text(e.responseJSON.fail);
                     $('#erralert').removeClass('d-none');
                 }
+            }).always(function( ) {
+                $.LoadingOverlay("hide", true);
             });
         });
 

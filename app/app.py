@@ -137,7 +137,7 @@ def attestation_get_options():
     session['challenge'] = challenge
     session['register_ukey'] = ukey
 
-    webauthn_exclude_cred_list = []
+    exclude_credentialids = []
 
     webauthn_options = webauthn.WebAuthnOptions()
     
@@ -164,11 +164,11 @@ def attestation_get_options():
             if not user.credential_id:
                 app.logger.debug('Unknown credential ID.')
                 return make_response(jsonify({'fail': 'Unknown credential ID.'}), 401)
-            webauthn_exclude_cred_list.append(str(user.credential_id))
+            exclude_credentialids.append(str(user.credential_id))
 
     make_credential_options = webauthn.WebAuthnMakeCredentialOptions(
         webauthn_options,
-        webauthn_exclude_cred_list,
+        exclude_credentialids,
         challenge,
         rp_name,
         RP_ID,
@@ -192,8 +192,6 @@ def assertion_get_options():
     challenge = util.generate_challenge(32)
     session['challenge'] = challenge
 
-    webauthn_user_list = []
-
     webauthn_options = webauthn.WebAuthnOptions()
 
     try:
@@ -213,29 +211,18 @@ def assertion_get_options():
 
     webauthn_options.set(json.loads(options.option_content))
 
+    allow_credentialids = []
     if username != '' or (webauthn_options.enableAssertionAllowCredentials == 'true' and len(webauthn_options.assertionAllowCredentialsUsers) != 0):
         if username != '':
             users = Users.query.filter_by(username=username).all()
         else:
             users = Users.query.filter(Users.id.in_(webauthn_options.assertionAllowCredentialsUsers)).all()
         for user in users:
-            if not user.credential_id:
-                app.logger.debug('Unknown credential ID.')
-                return make_response(jsonify({'fail': 'Unknown credential ID.'}), 404)
-            webauthn_user = webauthn.WebAuthnUser(
-                user.ukey,
-                user.username,
-                user.display_name,
-                user.icon_url,
-                user.credential_id,
-                user.pub_key,
-                user.sign_count,
-                user.rp_id)
-            webauthn_user_list.append(webauthn_user)
+            allow_credentialids.append(user.credential_id)
     
     webauthn_assertion_options = webauthn.WebAuthnAssertionOptions(
         webauthn_options,
-        webauthn_user_list,
+        allow_credentialids,
         challenge,
         RP_ID)
 
