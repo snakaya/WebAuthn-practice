@@ -559,7 +559,6 @@
         $('#decoder_output').val('');
     }
 
-
     $(document).ready(function() {
         // Loading-Anim Default Settings
         $.LoadingOverlaySetup({
@@ -585,6 +584,7 @@
 
         $("#registerBtn").click(function(e) {
             e.preventDefault();
+            clearMsg();
             var username = $('input[name="register_username"]').val();
             var displayName = $('input[name="register_display_name"]').val();
 
@@ -689,6 +689,7 @@
 
         $("#authnBtn").click(function(e) {
             e.preventDefault();
+            clearMsg();
             var username = $('input[name="authn_username"]').val();
 
             addLog('\n===== Authentication Start =====');
@@ -780,6 +781,7 @@
 
         $("#decodeAttestationBtn").click(function(e) {
             e.preventDefault();
+            clearMsg();
             var decoder_input = $('#decoder_input').val();
 
             var decoder_response = "";
@@ -803,6 +805,7 @@
                 type =  decoder_response.type;
                 attObj = decoder_response.response.attestationObject;
                 clientData = decoder_response.response.clientDataJSON ? decoder_response.response.clientDataJSON : decoder_response.response.clientDataJson;
+                console.log(clientData);
                 //registrationClientExtensions = JSON.stringify(decoder_response.getClientExtensionResults());
             } catch(e) {
                 console.log(e);
@@ -842,6 +845,7 @@
         });
         $("#decodeAssertionBtn").click(function(e) {
             e.preventDefault();
+            clearMsg();
             var decoder_input = $('#decoder_input').val();
 
             var decoder_response = "";
@@ -926,6 +930,9 @@
             $('#infoalert').addClass('d-none');
             $('#errmsg').text('');
             $('#erralert').addClass('d-none');
+
+            e.preventDefault();
+            clearMsg();
         });
         $("#usersLink, .backtoUsersBtn").click(function(e) {
             $('#usersModal').show(300);
@@ -945,12 +952,15 @@
             $('#errmsg').text('');
             $('#erralert').addClass('d-none');
 
+            e.preventDefault();
+            clearMsg();
+
             if (e.currentTarget.id == "usersLink") {
                 $("#usersTable").empty();
                 $.LoadingOverlay("show", true);
                 $.ajax({
                     method: "GET",
-                    url: "/users",
+                    url: "/users/flat",
                     dataType: "json"
                 }).done(function( data, textStatus, jqXHR ) {
                     if(data.fail) {
@@ -988,6 +998,9 @@
             $('#infoalert').addClass('d-none');
             $('#errmsg').text('');
             $('#erralert').addClass('d-none');
+
+            e.preventDefault();
+            clearMsg();
 
             $.LoadingOverlay("show", true);
             $.ajax({
@@ -1032,6 +1045,9 @@
             $('#infoalert').addClass('d-none');
             $('#errmsg').text('');
             $('#erralert').addClass('d-none');
+
+            e.preventDefault();
+            clearMsg();
         });
         $("#decoderLink").click(function(e) {
             $('#decoderModal').show(300);
@@ -1050,6 +1066,9 @@
             $('#infoalert').addClass('d-none');
             $('#errmsg').text('');
             $('#erralert').addClass('d-none');
+
+            e.preventDefault();
+            clearMsg();
         });
         $("#osLink").click(function(e) {
             $('#optionsModal').show(300);
@@ -1069,11 +1088,14 @@
             $('#errmsg').text('');
             $('#erralert').addClass('d-none');
 
+            e.preventDefault();
+            clearMsg();
+
             $.LoadingOverlay("show", true);
             $("#usersTable").empty();
             $.ajax({
                 method: "GET",
-                url: "/users",
+                url: "/users/flat",
                 dataType: "json"
             }).done(function( data, textStatus, jqXHR ) {
                 if(data.fail) {
@@ -1162,6 +1184,8 @@
 
         $(".opSettingsModalSaveBtn").click(function(e) {
             e.preventDefault();
+            clearMsg();
+
             var conveyancePreference = $('#attestationTypeSelect').val();
             var userVerification = $('#userVerificationSelect').val();
             var requireResidentKey = $('#requireResidentKeySelect').val();
@@ -1213,6 +1237,13 @@
         $(".clearSelectLink").on('click', function (e) {
             $('#' + e.currentTarget.dataset.targetselect).val(null).trigger('change');
         });
+
+        function clearMsg() {
+            $('#infomsg').text("");
+            $('#errmsg').text("");
+            $('#infoalert').addClass('d-none');
+            $('#erralert').addClass('d-none');
+        }
     });
 
     </script>

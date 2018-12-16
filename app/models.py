@@ -16,7 +16,7 @@ class Users(db.Model):
     response_dec = db.Column(db.Text, nullable=True)
     rp_id = db.Column(db.String(253), nullable=False)
     icon_url = db.Column(db.String(2083), nullable=True)
-    created = db.Column(db.DateTime, default=datetime.now())
+    created = db.Column(db.DateTime, index=True, default=datetime.now())
 
     def to_dict(self):
         return dict(

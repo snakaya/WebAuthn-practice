@@ -141,7 +141,7 @@ class WebAuthnTools(object):
         clientdata = json.loads(decoded_clientdata)
 
         att_obj = cbor2.loads(_webauthn_b64_decode(attestation_object))
-        att_stmt = att_obj.get('attStmt')
+        att_stmt = att_obj.get('attStmt', None)
         auth_data = att_obj.get('authData')
         fmt = att_obj.get('fmt')
 
@@ -288,14 +288,13 @@ class WebAuthnTools(object):
         else:
             attStmt = att_stmt
 
-        return {
+        att_dict = {
             'id' : credential_id,
             'rawId' : raw_id,
             "response" : {
                 'clientDataJSON' : clientdata,
                 'attestationObject' : {
                     'fmt' : fmt,
-                    'attStmt' : attStmt,
                     'authenticatorData' : {
                         'rpIdHashk' : _webauthn_b64_encode(auth_data_rp_id_hash),
                         'flags' : flags_dict,
@@ -311,6 +310,10 @@ class WebAuthnTools(object):
                 }
             }
         }
+        if attStmt is not None:
+            att_dict['response']['attestationObject']['attStmt'] = attStmt
+
+        return att_dict
     
     def view_assertion(self, response):
         credential_id = response.get('id')

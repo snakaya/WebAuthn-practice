@@ -12,6 +12,8 @@ from flask import request
 from flask import Response
 from flask import session
 from flask import url_for
+from sqlalchemy import desc
+from flask_migrate import Migrate
 import MySQLdb
 import psycopg2
 
@@ -58,6 +60,7 @@ app.config['SQLALCHEMY_DATABASE_URI'] = db_connect_URL
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.secret_key = SECRET_KEY
 db.init_app(app)
+Migrate(app, db)
 
 try:
     with open(os.path.join(os.path.dirname(os.path.abspath(__name__)), '../VERSION')) as f:
@@ -70,12 +73,12 @@ def index():
     return render_template('index.html', app_version = APP_VERSION)
 
 
-@app.route('/users', methods=['GET'])
+@app.route('/users/flat', methods=['GET'])
 def get_userlist():
     if request.method == 'GET':
         user_list = []
         webauthn_tools = webauthn.WebAuthnTools()
-        for u in Users.query.order_by(Users.id).all():
+        for u in Users.query.order_by(desc(Users.created), Users.id).all():
             u.pub_key = webauthn_tools.format_user_pubkey(u.pub_key)
             user_list.append(Users.to_dict(u))
         return jsonify({'users': user_list})
