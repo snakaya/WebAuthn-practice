@@ -107,8 +107,10 @@ venv.bak/
 # vscode
 .vscode
 
-# PyWebAuthn
+# WebAuthn-Practice
 py_webauthn.env
 webauthn.db
 app_dev.py
 createDB.txt
+app/systemd.env
+app/uwsgi.ini
