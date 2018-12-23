@@ -195,7 +195,7 @@
                     </colgroup>
                     <thead class="thead-light">
                         <tr class="text-center">
-                            <th scope="col">Attestation Option</th>
+                            <th scope="col">Creation Option</th>
                         </tr>
                     </thead>
                     <tbody id="userDetail-4Table">
@@ -210,10 +210,25 @@
                     </colgroup>
                     <thead class="thead-light">
                         <tr class="text-center">
-                            <th scope="col">Attestation Response</th>
+                            <th scope="col">Authenticator Response</th>
                         </tr>
                     </thead>
                     <tbody id="userDetail-5Table">
+                        <tr>
+                            <td id="responseRaw"></td>
+                        </tr>
+                    </tbody>
+                </table>
+                <table class="table my-0" style="table-layout:fixed;width:100%;">
+                    <colgroup>
+                        <col style="width:100%;">
+                    </colgroup>
+                    <thead class="thead-light">
+                        <tr class="text-center">
+                            <th scope="col">Authenticator Response (Decoded)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="userDetail-6Table">
                         <tr>
                             <td id="responseDecoded"></td>
                         </tr>
@@ -1018,6 +1033,7 @@
                 $("#iconUrl").text(data.icon_url);
                 $("#publicKey").text(JSON.stringify(data.pub_key));
                 $("#attOption").text(data.att_option);
+                $("#responseRaw").text(data.response);
                 $("#responseDecoded").text(data.response_dec);
             }).fail(function( jqXHR, textStatus, errorThrown ) {
                 console.log("Error getting User.");
