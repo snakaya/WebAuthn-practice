@@ -42,8 +42,8 @@ else:
 #
 # NOTE: PLEASE CHANGE TO YOUR RP_ID AND ORIGIN URL VIA OS ENVIRONMENT VARIABLES.
 #
-RP_ID = os.getenv('WEBAUTHN_RP_ID', 'www.example.com')
-ORIGIN = os.getenv('WEBAUTHN_ORIGIN', 'https://www.example.com')
+RP_ID = os.getenv('WEBAUTHN_RP_ID', 'localhost')
+ORIGIN = os.getenv('WEBAUTHN_ORIGIN', 'https://localhost')
 PORT = os.getenv('WEBAUTHN_PORT', '5000')
 # Trust anchors (trusted attestation roots) should be
 # placed in TRUST_ANCHOR_DIR.
@@ -62,15 +62,10 @@ app.secret_key = SECRET_KEY
 db.init_app(app)
 Migrate(app, db)
 
-try:
-    with open(os.path.join(os.path.dirname(os.path.abspath(__name__)), '../VERSION')) as f:
-        APP_VERSION = f.read()
-except IOError:
-    APP_VERSION = '(?)'
 
 @app.route('/')
 def index():
-    return render_template('index.html', app_version = APP_VERSION)
+    return render_template('index.html', app_version = _get_app_version())
 
 
 @app.route('/users/flat', methods=['GET'])
@@ -554,6 +549,22 @@ def set_options():
         return make_response(jsonify({'fail': 'Options Database Error: {}'.format(e)}), 500)
     
     return make_response(jsonify({'success': 'Options successfully saved.'}), 200)
+
+
+def _get_app_version():
+    ret_ver = '(?)'
+    try:
+        version_file = None
+        if os.path.exists(os.path.join(os.path.dirname(os.path.abspath(__name__)), '../VERSION')):
+            version_file = os.path.join(os.path.dirname(os.path.abspath(__name__)), '../VERSION')
+        elif os.path.exists(os.path.join(os.path.dirname(os.path.abspath(__name__)), '../../VERSION')):
+            version_file = os.path.join(os.path.dirname(os.path.abspath(__name__)), '../../VERSION')
+        if version_file is not None:
+            with open(version_file) as f:
+                ret_ver = f.read()
+    except IOError:
+        pass
+    return ret_ver
 
 
 if __name__ == '__main__':
