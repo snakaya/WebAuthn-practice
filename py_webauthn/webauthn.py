@@ -168,6 +168,10 @@ class WebAuthnTools(object):
 
         cpk = cbor2.loads(credential_pub_key)
 
+        credential_alg, public_key = _get_publickey(cpk)
+        public_key_encoded = _encode_public_key(credential_alg, public_key)
+        print(_webauthn_b64_encode(public_key_encoded))
+
         cpk_dict = {}
         for k, v in cpk.items():
             if(isinstance(v, str)):
@@ -697,7 +701,15 @@ class WebAuthnMakeCredentialOptions(object):
                 {
                     'alg': -7,                                  # ES256
                     'type': 'public-key',
-                }
+                },
+                {"type":"public-key","alg":-37},
+                {"type":"public-key","alg":-35},
+                {"type":"public-key","alg":-258},
+                {"type":"public-key","alg":-38},
+                {"type":"public-key","alg":-36},
+                {"type":"public-key","alg":-259},
+                {"type":"public-key","alg":-39},
+                {"type":"public-key","alg":-65535}
             ],
             'timeout': 60000,  # 1 min.
         }
