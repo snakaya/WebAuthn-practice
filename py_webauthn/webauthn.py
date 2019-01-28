@@ -69,6 +69,7 @@ AT_OTHER = 'Other'            # Unknown Format.
 SUPPORTED_ATTESTATION_TYPES = (
     AT_BASIC,
     AT_NONE,
+    AT_ATTESTATION_CA,
     AT_SELF_ATTESTATION
 )
 # Supported Attestation Types now
@@ -76,7 +77,9 @@ SUPPORTED_ATTESTATION_TYPES = (
 SUPPORTED_ATTESTATION_FORMATS = (
     'packed',
     'fido-u2f',
+    'android-key',
     'android-safetynet',
+    'tpm',
     'none',
 )
 # Trust anchors (trusted attestation roots directory).
@@ -702,14 +705,17 @@ class WebAuthnMakeCredentialOptions(object):
                     'alg': -7,                                  # ES256
                     'type': 'public-key',
                 },
-                {"type":"public-key","alg":-37},
-                {"type":"public-key","alg":-35},
-                {"type":"public-key","alg":-258},
-                {"type":"public-key","alg":-38},
-                {"type":"public-key","alg":-36},
-                {"type":"public-key","alg":-259},
-                {"type":"public-key","alg":-39},
-                {"type":"public-key","alg":-65535}
+                {
+                    'alg': -65535,                              # RS1
+                    'type': 'public-key',
+                },
+                #{"type":"public-key","alg":-37},
+                #{"type":"public-key","alg":-35},
+                #{"type":"public-key","alg":-258},
+                #{"type":"public-key","alg":-38},
+                #{"type":"public-key","alg":-36},
+                #{"type":"public-key","alg":-259},
+                #{"type":"public-key","alg":-39},
             ],
             'timeout': 60000,  # 1 min.
         }
@@ -1211,6 +1217,15 @@ class WebAuthnRegistrationResponse(object):
             if 'x5c' in att_stmt: # AttCA
                 logger.debug('tpm AttStmtFmt: x5c/AttCA')
                 fmt = 'tpm-attca'
+
+                certs = []
+                for att_cert in att_stmt.get('x5c'):
+                    x509_att_cert = load_der_x509_certificate(att_cert, default_backend())
+                    certs.append(x509_att_cert)
+                if len(certs) == 0:
+                    logger.error('No X.509 certs available.')
+                    raise RegistrationRejectedException('No X.509 certs available.')
+                trust_path = certs
             elif 'ecdaaKeyId' in att_stmt: # ECDAA
                 logger.debug('tpm AttStmtFmt: ecdaaKeyId/ECDAA')
                 logger.debug('Unsupported packed semantic (ECDAA), However It regard as fmt=\'none\'.')
@@ -1461,15 +1476,11 @@ class WebAuthnRegistrationResponse(object):
             if attestation_type == AT_SELF_ATTESTATION:
                 if not self.self_attestation_permitted:
                     raise RegistrationRejectedException('Self attestation is not permitted.')
-            elif attestation_type == AT_ATTESTATION_CA:
-                logger.debug('Attestation CA attestation type is not currently supported.')
-                raise NotImplementedError(
-                    'Attestation CA attestation type is not currently supported.')
             elif attestation_type == AT_ECDAA:
                 logger.debug('ECDAA attestation type is not currently supported.')
                 raise NotImplementedError(
                     'ECDAA attestation type is not currently supported.')
-            elif attestation_type == AT_BASIC:
+            elif attestation_type == AT_BASIC or attestation_type == AT_ATTESTATION_CA:
                 if self.trusted_attestation_cert_required:
                     logger.debug('>>> trust_path=' + str(trust_path))
                     logger.debug('>>> trust_anchors=' + str(trust_anchors))
