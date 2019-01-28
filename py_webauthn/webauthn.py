@@ -705,10 +705,6 @@ class WebAuthnMakeCredentialOptions(object):
                     'alg': -7,                                  # ES256
                     'type': 'public-key',
                 },
-                {
-                    'alg': -65535,                              # RS1
-                    'type': 'public-key',
-                },
                 #{"type":"public-key","alg":-37},
                 #{"type":"public-key","alg":-35},
                 #{"type":"public-key","alg":-258},
@@ -716,6 +712,7 @@ class WebAuthnMakeCredentialOptions(object):
                 #{"type":"public-key","alg":-36},
                 #{"type":"public-key","alg":-259},
                 #{"type":"public-key","alg":-39},
+                #{"type":"public-key","alg":-65535}
             ],
             'timeout': 60000,  # 1 min.
         }
